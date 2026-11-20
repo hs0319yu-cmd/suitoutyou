@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10243b">
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<title>在庫・発注管理</title>
+<style>
+:root{--bg:#f4f7fb;--panel:#fff;--ink:#172235;--muted:#66758a;--line:#dfe6ef;--blue:#2563eb;--blue2:#eaf1ff;--green:#13845b;--red:#c24141;--amber:#a16207}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:0;z-index:10;background:#10243b;color:white;padding:14px 20px;box-shadow:0 2px 12px #13253a22}
+.head{max-width:1440px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-weight:800;font-size:20px}.sub{font-size:12px;color:#c8d6e8}
+nav{display:flex;gap:6px;overflow:auto;max-width:1440px;margin:12px auto 0}
+nav button{white-space:nowrap;border:1px solid #ffffff33;color:#e8f0fb;background:transparent;border-radius:9px;padding:9px 14px;font-weight:700}
+nav button.active{background:white;color:#10243b}
+main{max-width:1440px;margin:20px auto;padding:0 18px 60px}.page{display:none}.page.active{display:block}
+h1{font-size:24px;margin:8px 0 16px}h2{font-size:17px;margin:0 0 12px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.stat,.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 3px 12px #1b36500a}
+.stat small{display:block;color:var(--muted);font-weight:700}.stat strong{font-size:28px;display:block;margin-top:4px}
+.row{display:flex;gap:10px;align-items:end;flex-wrap:wrap}.field{display:flex;flex-direction:column;gap:5px;min-width:150px;flex:1}
+label{font-size:12px;color:var(--muted);font-weight:700}
+input,select,textarea{width:100%;border:1px solid #cbd5e1;border-radius:9px;padding:10px 11px;font:inherit;background:white;color:var(--ink);min-height:42px}
+textarea{min-height:76px}button{cursor:pointer;font:inherit}
+.btn{border:0;border-radius:9px;padding:10px 15px;font-weight:800;background:var(--blue);color:white;min-height:40px}
+.btn.secondary{background:#e7edf5;color:#26384f}.btn.green{background:var(--green)}.btn.warn{background:#fff2db;color:#854d0e}.btn.small{padding:6px 10px;min-height:32px;font-size:12px}
+.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.toolbar .field{max-width:300px}
+.tablewrap{overflow:auto;border:1px solid var(--line);border-radius:11px;background:white;max-height:65vh}
+table{border-collapse:collapse;width:100%;font-size:13px;white-space:nowrap}
+th,td{padding:10px 11px;border-bottom:1px solid #e8edf3;text-align:left}
+th{background:#f0f4f9;position:sticky;top:0;z-index:1;color:#40516a}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+.pill{display:inline-block;padding:4px 8px;border-radius:99px;background:#eaf1ff;color:#2455aa;font-size:11px;font-weight:800}
+.pill.red{background:#ffeded;color:#a52b2b}.pill.gray{background:#edf0f4;color:#596579}.pill.green{background:#e4f6ed;color:#13734f}
+.muted{color:var(--muted)}.hint{font-size:12px;color:var(--muted);line-height:1.6}.hidden{display:none!important}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px}.product-name{font-weight:800}.size{color:#b42323;font-weight:800}
+.formgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.orderline{display:grid;grid-template-columns:2fr .7fr .8fr .8fr auto;gap:8px;align-items:end;margin:8px 0}
+.stock-counter{display:flex;gap:4px;align-items:center}.stock-counter .small{padding:7px 10px;min-width:34px}.stock-card-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}.stock-card{background:#fff;border:2px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 2px 8px rgba(0,0,0,.06)}.stock-card-name{font-size:22px;font-weight:900;line-height:1.35;white-space:pre-line}.stock-card-size{font-size:20px;font-weight:800;color:#7c3aed;margin-top:8px}.stock-current{text-align:center;font-size:24px;margin:18px 0}.stock-current strong{font-size:42px}.stock-edit-row{display:grid;grid-template-columns:1fr;gap:8px}.stock-edit-buttons{display:flex;gap:8px}.stock-edit-buttons button{flex:1;min-height:54px}.outflow-negative{color:#c24141;font-weight:900}.stock-edit-row input{width:100%;box-sizing:border-box;text-align:center;font-size:38px;font-weight:900;padding:8px;border:3px solid #2563eb;border-radius:12px}.stock-plus,.stock-minus{border:0;border-radius:12px;color:#fff;font-size:42px;font-weight:900}.stock-plus{background:#10b981}.stock-minus{background:#ef4444}.splitbatch{border:1px solid var(--line);border-radius:10px;padding:12px;margin:10px 0;background:#fbfcfe}
+.splitline{display:grid;grid-template-columns:2fr .6fr .8fr;gap:8px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line)}
+footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cards{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){header{padding:11px 12px}.brand{font-size:17px}main{padding:0 10px 50px;margin:12px auto}h1{font-size:20px}.grid{gap:8px}.stat{padding:12px}.stat strong{font-size:23px}.panel{padding:12px}.formgrid{grid-template-columns:1fr}.orderline{grid-template-columns:1fr 1fr}.orderline .wide{grid-column:1/-1}.toolbar .field{max-width:none;min-width:130px}.tablewrap{max-height:60vh}th,td{padding:9px 8px}}
+</style>
+</head>
+<body>
+<header>
+ <div class="head"><div><div class="brand">在庫・発注管理</div><div class="sub">部分棚卸対応 / 入出庫履歴 / 需要予測 / 分割発注</div></div><div id="loadState" class="sub">読み込み中…</div></div>
+ <nav id="nav">
+  <button class="active" data-page="dashboard">ダッシュボード</button><button data-page="products">商品・在庫</button><button data-page="makerlink">メーカー紐づけ</button><button data-page="movement">入出庫登録</button><button data-page="stocktake">部分棚卸</button><button data-page="reports">推定出庫</button><button data-page="orders">発注管理</button><button data-page="settings">設定</button>
+ </nav>
+</header>
+<main>
+<section id="dashboard" class="page active">
+ <h1>在庫ダッシュボード</h1>
+ <div class="grid" id="stats"></div>
+ <div class="cards">
+  <div class="panel"><h2>補充が必要な商品</h2><div id="lowList" class="hint">読み込み中…</div></div>
+  <div class="panel"><h2>未棚卸の商品</h2><div id="unknownList" class="hint">読み込み中…</div></div>
+ </div>
+ <p class="hint">在庫数は「商品ごとの最新棚卸数量 ＋ その後の入出庫」で計算します。未棚卸商品は0にせず「未棚卸」と表示します。</p>
+</section>
+
+<section id="products" class="page">
+ <h1>商品・在庫一覧</h1>
+ <div class="toolbar">
+  <div class="field"><label>商品名・サイズ検索</label><input id="productSearch" placeholder="商品名・サイズ・仕入先"></div>
+  <div class="field"><label>メーカー</label><select id="productMakerFilter" onchange="renderProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>状態</label><select id="productFilter"><option value="">すべて</option><option>要補充</option><option>在庫あり</option><option>未棚卸</option></select></div>
+  <button class="btn secondary" onclick="loadAll()">更新</button>
+ </div>
+ <div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ</th><th>仕入先</th><th>現在庫</th><th>補充ライン</th><th>最新棚卸日</th><th>補充目安</th><th>欠品予測</th><th>状態</th></tr></thead><tbody id="productRows"></tbody></table></div>
+ <p class="hint">現在庫は最新の実棚数量を基準に、その後に登録された入庫・出庫を反映します。元台帳に日付がない出庫合計は、月別実績に混ぜていません。</p>
+</section>
+
+<section id="movement" class="page">
+ <h1>入庫・出庫登録</h1>
+ <div class="panel">
+  <div class="row">
+   <div class="field"><label>区分</label><select id="moveType" onchange="renderMoveCards()"><option>入庫</option><option>出庫</option></select></div>
+   <div class="field"><label>日付</label><input id="moveDate" type="date"></div>
+   <div class="field"><label>メーカー</label><select id="moveMaker" onchange="renderMoveProductNames()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>商品</label><select id="moveName" onchange="renderMoveOptions()"><option value="">商品を選択（全商品表示）</option></select></div>
+   <div class="field"><label>バリエーション</label><select id="moveProduct" onchange="renderMoveCards()"><option value="">全バリエーション</option></select></div>
+   <div class="field"><label>対象商品検索</label><input id="moveSearch" placeholder="商品名・サイズ"></div>
+  </div>
+  <p class="hint">部分棚卸と同じカード形式で数量を入力できます。数量欄に入力してEnter、または＋／－で今回の入力数に加算し、最後にまとめて登録します。</p>
+  <div class="row" style="align-items:center;margin:10px 0"><strong id="movePendingSummary">未登録：0商品 / 0点</strong><button class="btn green" onclick="commitMovements()">入力分をまとめて登録</button><button class="btn secondary" onclick="clearMoveDraft()">端末入力をクリア</button></div>
+  <div class="field" style="max-width:320px;margin-bottom:10px"><label>伝票番号・参照</label><input id="moveRef"></div>
+  <div class="field" style="margin-bottom:10px"><label>備考</label><input id="moveNote"></div>
+  <div id="moveRows" class="stock-card-list"></div>
+ </div>
+ <div class="panel" style="margin-top:14px">
+  <h2>入庫履歴一覧</h2>
+  <p class="hint">過去に登録した入庫から最新分まで、日付順に表示します。メーカー・商品で絞り込めます。</p>
+  <div class="toolbar">
+   <div class="field"><label>メーカー</label><select id="inboundHistoryMaker" onchange="renderInboundHistoryProducts();renderInboundHistory()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>商品</label><select id="inboundHistoryProduct" onchange="renderInboundHistory()"><option value="">すべての商品</option></select></div>
+   <div class="field"><label>商品・サイズ検索</label><input id="inboundHistorySearch" placeholder="商品名・サイズ" oninput="renderInboundHistory()"></div>
+   <button class="btn secondary" onclick="refreshInboundHistory()">履歴を更新</button>
+   <strong id="inboundHistoryTotal"></strong>
+  </div>
+  <div class="tablewrap"><table><thead><tr><th>入庫日</th><th>メーカー</th><th>商品</th><th>サイズ・色</th><th>入庫数</th><th>単価</th><th>伝票番号・参照</th><th>備考</th></tr></thead><tbody id="inboundHistoryRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="stocktake" class="page">
+ <h1>部分棚卸</h1>
+ <div class="panel">
+  <div class="row">
+   <div class="field"><label>棚卸日</label><input id="stockDate" type="date"></div>
+   <div class="field"><label>棚卸区分</label><select id="stockKind"><option>通常棚卸</option><option>部分棚卸</option><option>再確認</option></select></div>
+   <div class="field"><label>メーカー</label><select id="stockSupplier"><option value="">全メーカー</option></select></div><div class="field"><label>商品</label><select id="stockName"></select></div><div class="field"><label>バリエーション</label><select id="stockVariant"></select></div><div class="field"><label>対象商品検索</label><input id="stockSearch" placeholder="商品名・サイズ"></div>
+  </div>
+  <p class="hint">ここで入力した数は端末内の一時カウントです。現在庫には加算されません。棚卸日ごとに保存し、最後にまとめて確定すると、その日付の実棚数量として登録されます。同じ日付で再確定した商品は上書きします。</p>
+  <div class="row" style="align-items:center;margin:10px 0"><strong id="stockPendingSummary">未確定：0商品 / 0点</strong><button class="btn green" onclick="commitStocktake()">入力分をまとめて現在庫に登録</button><button class="btn secondary" onclick="clearStockDraft()">端末入力をクリア</button></div>
+  <div id="stockNetworkNotice" class="hint" style="display:none"></div>
+  <div id="stockRows" class="stock-card-list"></div>
+ </div>
+</section>
+
+<section id="reports" class="page">
+ <h1>棚卸差異から推定した出庫</h1>
+ <div class="panel">
+  <div class="row">
+   <div class="field"><label>開始日</label><input id="reportFrom" type="date"></div>
+   <div class="field"><label>終了日</label><input id="reportTo" type="date"></div>
+   <div class="field"><label>メーカー</label><select id="derivedMaker" onchange="renderDerivedMakerProducts()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>商品</label><select id="derivedProduct" onchange="renderDerivedOutflow()"><option value="">すべての商品</option></select></div>
+   <button class="btn" onclick="loadReports()">集計</button>
+  </div>
+  <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を終了在庫として、基準在庫＋採用棚卸間の入庫－終了棚卸在庫で推定出庫を計算します。マイナス値もそのまま表示します。棚卸履歴が1回以下の商品は計算不可です。</p>
+  <div class="tablewrap"><table><thead><tr><th>商品</th><th>推定出庫</th><th>発注の目安</th><th>発注数量</th><th>採用棚卸期間</th><th>判定</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
+ </div>
+</section>
+
+<section id="orders" class="page">
+ <h1>発注管理・金額均等分割</h1>
+ <div class="panel">
+  <div class="formgrid">
+   <div class="field"><label>メーカー（仕入先）</label><select id="orderSupplier"><option value="">メーカーを選択</option></select></div>
+   <div class="field"><label>発注日</label><input id="orderDate" type="date"></div>
+   <div class="field"><label>納期</label><input id="deliveryDate" type="date"></div>
+   <div class="field"><label>分割回数</label><select id="splitCount"><option selected>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>8</option><option>10</option><option>12</option></select></div>
+   <div class="field" style="grid-column:span 2"><label>備考</label><input id="orderNote"></div>
+  </div>
+  <h2 style="margin-top:18px">商品を1点ずつ追加する場合</h2>
+  <div class="formgrid">
+   <div class="field"><label>商品</label><select id="orderProduct"></select></div>
+   <div class="field"><label>バリエーション（サイズ・色）</label><select id="orderVariant"></select></div>
+   <div class="field"><label>数量</label><input id="orderQty" type="number" min="1" step="1" placeholder="数量を入力" value="" onkeydown="if(event.key==='Enter'){event.preventDefault();addSelectedOrderProduct()}"></div>
+   <div class="field"><label>単価（変更可）</label><input id="orderUnitPrice" type="number" min="0" step="0.01"></div><div class="field"><label>通貨</label><select id="orderCurrency"><option value="JPY">円（JPY）</option><option value="USD">ドル（USD）</option></select></div>
+  </div>
+  <button class="btn secondary" onclick="addSelectedOrderProduct()">＋ 選択商品を明細に追加</button>
+  <h2 style="margin-top:18px">発注明細・書式プレビュー</h2>
+  <div id="orderLines"></div>
+  <div id="orderPreview" class="panel" style="margin-top:12px;background:#fff;color:#172033"></div>
+  <div class="row" style="margin-top:10px"><button class="btn secondary" onclick="refreshOrderPreview()">発注書プレビュー更新</button><button class="btn" onclick="downloadOrderPdf()">発注書PDFをダウンロード</button></div>
+  <div class="row" style="margin-top:14px"><strong id="orderTotal">合計：¥0</strong><button class="btn" onclick="makeSplit()">金額を均等に自動配分</button><button class="btn green" onclick="saveSingleOrder()">分割せず発注保存</button></div>
+  <div id="splitResult"></div>
+ </div>
+ <div class="panel" style="margin-top:14px"><h2>受注残一覧（サイズ・色別）</h2><p class="hint">アップロードされたExcel「2024 防具1」「2024 防具2」「2024 衣類」の注文残を初期値として登録しています。入庫を登録すると該当バリエーションの受注残が減り、アプリで発注書を保存すると増えます。</p><div class="toolbar"><div class="field"><label>メーカー</label><select id="backlogMaker" onchange="renderBacklogProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>商品</label><select id="backlogProduct" onchange="renderBacklogVariants()"><option value="">すべての商品</option></select></div><div class="field"><label>バリエーション</label><select id="backlogVariant" onchange="renderBacklogs()"><option value="">すべて</option></select></div><div class="field"><label>表示</label><select id="backlogFilter" onchange="renderBacklogs()"><option value="all">すべて</option><option value="remaining">受注残あり</option><option value="unmapped">商品未紐づけ</option></select></div><strong id="backlogTotal"></strong></div><div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ・色</th><th>初期受注残</th><th>現在受注残</th><th>元シート</th><th>紐づけ</th></tr></thead><tbody id="backlogRows"></tbody></table></div></div>
+ <div class="panel" style="margin-top:14px"><h2>発注履歴</h2><div class="toolbar">
+  <div class="field"><label>メーカー</label><select id="orderHistoryMaker" onchange="renderOrders()"><option value="">全メーカー</option></select></div>
+  <div class="field"><label>商品・発注ID検索</label><input id="orderHistorySearch" placeholder="商品名・サイズ・発注ID・メーカー" oninput="renderOrders()"></div>
+  <div class="field"><label>状態</label><select id="orderHistoryStatus" onchange="renderOrders()"><option value="">すべて</option><option>下書き</option><option>発注済</option><option>一部入荷</option><option>完了</option><option>取消</option></select></div>
+ </div><div class="tablewrap"><table><thead><tr><th>発注ID</th><th>仕入先</th><th>発注日</th><th>納期</th><th>回</th><th>金額・通貨</th><th>状態</th><th>変更</th></tr></thead><tbody id="orderRows"></tbody></table></div></div>
+ <p class="hint">数量は整数のまま各回へ配分します。高単価の商品から金額の少ない回へ割り当て、合計金額は必ず元の発注合計と一致させます。各回の数量・単価・日付は保存前に調整できます。</p>
+</section>
+
+<section id="makerlink" class="page">
+ <h1>メーカー不明商品の手動紐づけ</h1>
+ <div class="panel">
+  <p class="hint">仕入先が未登録の商品だけを表示します。商品を選択して既存メーカーを選ぶか、新しいメーカー名を入力して登録できます。商品ID・在庫数・棚卸履歴・入出庫履歴・単価は変更しません。</p>
+  <div class="row">
+   <div class="field"><label>商品検索</label><input id="makerLinkSearch" placeholder="商品名・サイズで検索" oninput="renderMakerLinkRows()"></div>
+   <div class="field"><label>登録済みメーカー</label><select id="makerLinkExisting"><option value="">既存メーカーを選択</option></select></div>
+   <div class="field"><label>新しいメーカー名（任意）</label><input id="makerLinkNew" placeholder="例：〇〇武道具"></div>
+  </div>
+  <div class="row" style="margin:12px 0"><label style="display:flex;align-items:center;gap:8px"><input id="makerLinkAll" type="checkbox" style="width:18px;min-height:18px">表示中の商品をすべて選択</label><strong id="makerLinkCount" class="muted">0件選択</strong></div>
+  <div class="tablewrap"><table><thead><tr><th>選択</th><th>商品名</th><th>サイズ</th><th>商品ID</th></tr></thead><tbody id="makerLinkRows"></tbody></table></div>
+  <div class="row" style="margin-top:12px"><button class="btn green" onclick="saveMakerLinks()">選択商品をメーカーに紐づけ</button><button class="btn secondary" onclick="loadAll()">一覧を更新</button></div>
+  <p class="hint">メーカー名を新規入力した場合は、その名前でメーカーを新規登録した扱いになります。次回から既存メーカー一覧にも表示されます。</p>
+ </div>
+</section>
+
+<section id="settings" class="page">
+ <h1>設定</h1>
+ <div class="panel">
+  <h2>Gemini AI（需要分析）</h2>
+  <p class="hint">APIキーは画面やHTMLに保存せず、Apps Scriptのスクリプトプロパティに保存します。AIは需要傾向の説明を補助し、在庫数量や発注金額の確定計算は行いません。</p>
+  <div class="row"><div class="field"><label>Gemini APIキー</label><input id="geminiKey" type="password" placeholder="AIza..."></div><button class="btn" onclick="saveGeminiKey()">APIキーを保存</button></div>
+  <div id="keyStatus" class="hint" style="margin-top:8px"></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+  <h2>商品ごとの仕入先・補充ライン・単価</h2>
+  <p class="hint">仕入先・補充ライン・単価をいつでも変更できます。値上げ時は新しい単価を入力して「商品設定を保存」してください。単価変更は操作ログに旧価格・新価格・変更日を記録し、過去の発注書の単価は変更しません。</p>
+  <div class="field"><label>商品検索</label><input id="settingSearch" placeholder="商品名で検索" oninput="renderSettingProducts()"></div>
+  <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>商品</th><th>仕入先</th><th>補充ライン</th><th>現在単価（変更可）</th><th>通貨</th></tr></thead><tbody id="settingRows"></tbody></table></div>
+  <button class="btn green" style="margin-top:12px" onclick="saveProductSettings()">商品設定を保存</button>
+ </div>
+</section>
+</main>
+<footer>在庫管理システム / データは連携先Googleスプレッドシートに保存されます</footer>
+<script src="./api.js"></script>
+<script>
+let products=[],orders=[],settings={},backlogs=[],splitDraft=null,inboundHistory=[];
+const $=id=>document.getElementById(id);
+const money=(n,c)=>String(c||'JPY')==='USD'?'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP'); const yen=n=>money(n,'JPY');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
+function call(name,...args){return InventoryApi.call(name,...args)}
+function busy(v,msg){$('loadState').textContent=v?(msg||'処理中…'):'オンライン'}
+function toast(msg){$('loadState').textContent=msg;setTimeout(()=>$('loadState').textContent='オンライン',3500)}
+function init(){
+ ['moveDate','stockDate','orderDate','reportTo'].forEach(id=>$(id).value=today());
+ $('stockDate').addEventListener('change',renderStockRows);
+ $('reportFrom').value=new Date(Date.now()-365*86400000).toISOString().slice(0,10);
+ document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
+ $('makerLinkAll').onchange=toggleMakerLinkAll;$('productSearch').oninput=renderProducts;$('productFilter').onchange=renderProducts;
+ $('moveSearch').oninput=renderMoveProductNames;$('moveDate').addEventListener('change',renderMoveCards);$('stockSearch').oninput=renderStockRows;
+ $('orderSupplier').onchange=()=>{renderOrderProductOptions();refreshOrderPreview()};$('orderProduct').onchange=renderOrderVariantOptions;$('orderVariant').onchange=syncOrderPrice;
+ $('stockSupplier').onchange=()=>{renderStockProductOptions();renderStockRows()};$('stockName').onchange=()=>{renderStockVariantOptions();renderStockRows()};$('stockVariant').onchange=renderStockRows;
+ loadAll();
+}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
+async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119'),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProducts();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
+function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
+ const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
+ $('lowList').innerHTML=low.length?low.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　現在庫 ${p.balance} / 補充 ${p.reorderPoint}</div>`).join(''):'該当商品なし';
+ $('unknownList').innerHTML=unk.length?unk.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　<span class="pill gray">未棚卸</span></div>`).join(''):'該当商品なし'}
+function renderProducts(){
+ const q=$('productSearch').value.toLowerCase(),f=$('productFilter').value,maker=$('productMakerFilter')?.value||'';
+ if($('productMakerFilter')){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));$('productMakerFilter').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('productMakerFilter').value=maker}
+ const list=products.filter(p=>(!maker||p.supplier===maker)&&(!q||`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q))&&(!f||p.status===f));
+ $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
+}
+function initInboundHistoryFilters(){
+ const maker=$('inboundHistoryMaker');if(!maker)return;
+ const old=maker.value;const makers=[...new Set(inboundHistory.map(x=>x.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ maker.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');maker.value=makers.includes(old)?old:'';
+ renderInboundHistoryProducts();
+}
+function renderInboundHistoryProducts(){
+ const maker=$('inboundHistoryMaker')?.value||'',el=$('inboundHistoryProduct');if(!el)return;const old=el.value;
+ const names=[...new Map(inboundHistory.filter(x=>!maker||x.supplier===maker).map(x=>[normProductName(x.name),x.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));
+ el.innerHTML='<option value="">すべての商品</option>'+names.map(([key,name])=>`<option value="${esc(key)}">${esc(name)}</option>`).join('');el.value=names.some(([key])=>key===old)?old:'';
+}
+function renderInboundHistory(){
+ const maker=$('inboundHistoryMaker')?.value||'',name=$('inboundHistoryProduct')?.value||'',q=($('inboundHistorySearch')?.value||'').toLowerCase();
+ const list=inboundHistory.filter(x=>(!maker||x.supplier===maker)&&(!name||sameProductName(x.name,name))&&(!q||`${x.name} ${x.size} ${x.supplier} ${x.reference} ${x.note}`.toLowerCase().includes(q)));
+ $('inboundHistoryTotal').textContent=`${list.length.toLocaleString('ja-JP')}件 / ${list.reduce((n,x)=>n+Number(x.qty||0),0).toLocaleString('ja-JP')}点`;
+ $('inboundHistoryRows').innerHTML=list.map(x=>`<tr><td>${esc(x.date||'—')}</td><td>${esc(x.supplier||'メーカー未設定')}</td><td class="product-name">${esc(x.name)}</td><td class="size">${esc(x.size||'標準')}</td><td class="num"><b>${Number(x.qty||0).toLocaleString('ja-JP')}</b></td><td class="num">${money(x.unitPrice,x.currency)}</td><td>${esc(x.reference)}</td><td>${esc(x.note)}</td></tr>`).join('')||'<tr><td colspan="8">該当する入庫履歴がありません</td></tr>';
+}
+async function refreshInboundHistory(){try{busy(true,'入庫履歴を更新中…');inboundHistory=await call('getInboundHistory');initInboundHistoryFilters();renderInboundHistory();toast('入庫履歴を更新しました')}catch(e){alert(e.message);busy(false)}}
+
+function renderMoveProductNames(){
+ const maker=$('moveMaker').value,search=($('moveSearch').value||'').toLowerCase(),old=$('moveName').value;
+ const source=filteredByMaker(maker).filter(p=>`${p.name} ${p.size}`.toLowerCase().includes(search));
+ const names=[...new Map(source.map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));
+ $('moveName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');
+ $('moveName').value=names.some(([key])=>key===old)?old:'';renderMoveOptions();
+}
+function renderMoveOptions(){
+ const maker=$('moveMaker').value,name=$('moveName').value,search=($('moveSearch').value||'').toLowerCase(),sel=$('moveProduct'),old=sel.value;
+ const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!search||`${p.name} ${p.size}`.toLowerCase().includes(search)));
+ sel.innerHTML='<option value="">全バリエーション</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}</option>`).join('');if(list.some(p=>p.id===old))sel.value=old;renderMoveCards();
+}
+const MOVE_INPUT_KEY='code_move_input_totals_v1';let moveInputTotals={};
+try{moveInputTotals=JSON.parse(localStorage.getItem(MOVE_INPUT_KEY)||'{}')||{}}catch(e){moveInputTotals={}}
+function saveMoveInputTotals(){try{localStorage.setItem(MOVE_INPUT_KEY,JSON.stringify(moveInputTotals))}catch(e){}}
+function moveDraftKey(){return `${$('moveDate').value||today()}_${$('moveType').value}`}
+function getMoveDraft(){return moveInputTotals[moveDraftKey()]||(moveInputTotals[moveDraftKey()]={})}
+function renderMoveCards(){
+ if(!$('moveRows'))return;
+ const q=($('moveSearch').value||'').toLowerCase(),maker=$('moveMaker').value,name=$('moveName').value,variant=$('moveProduct').value,draft=getMoveDraft();
+ const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!variant||p.id===variant)&&(`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q)));
+ $('moveRows').innerHTML=list.map(p=>{
+  const qty=Number(draft[p.id]?.qty)||0,price=draft[p.id]?.price??(Number(p.unitPrice)||0),currency=draft[p.id]?.currency??(p.currency||'JPY');
+  return `<div class="stock-card"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div>${$('moveType').value==='入庫'?'':`<div class="stock-current">現在の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}</div></div>`}<div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="move-total-${p.id}">${qty}</strong></div><div class="field" style="margin:8px 0"><label>単価（変更可）</label><input type="number" min="0" step="0.01" data-move-price="${p.id}" value="${esc(price)}"></div><div class="field" style="margin:8px 0"><label>通貨</label><select data-move-currency="${p.id}"><option value="JPY" ${currency==='JPY'?'selected':''}>円（JPY）</option><option value="USD" ${currency==='USD'?'selected':''}>ドル（USD）</option></select></div><div class="stock-edit-row"><input type="number" min="1" step="1" inputmode="numeric" data-move-id="${p.id}" placeholder="${$('moveType').value==='入庫'?'入庫':'出庫'}数量を入力" value="" autocomplete="off" onfocus="this.select()" onkeydown="moveEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustMoveCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustMoveCount('${p.id}',-1)">－</button></div></div></div>`;
+ }).join('')||'<div class="hint">対象商品がありません</div>';
+ const count=Object.values(draft).filter(v=>Number(v?.qty)>0).length,total=Object.values(draft).reduce((sum,v)=>sum+(Number(v?.qty)||0),0);
+ $('movePendingSummary').textContent=`未登録：${count}商品 / ${total}点`;
+}
+function moveInput(id){return document.querySelector(`[data-move-id="${CSS.escape(String(id))}"]`)}
+function adjustMoveCount(id,mode){
+ const el=moveInput(id);if(!el)return;const raw=String(el.value||'').trim(),qty=raw?Math.floor(Number(raw)):1;
+ if(!Number.isFinite(qty)||qty<=0){el.focus();return alert('数量を1以上で入力してください')}
+ const draft=getMoveDraft(),old=draft[id]||{},next=(Number(old.qty)||0)+(mode>0?qty:-qty);
+ if(next<0)return alert('端末入力数は0未満にできません');
+ const price=document.querySelector(`[data-move-price="${CSS.escape(String(id))}"]`),currency=document.querySelector(`[data-move-currency="${CSS.escape(String(id))}"]`);
+ draft[id]={qty:next,price:price?price.value:old.price,currency:currency?currency.value:old.currency};saveMoveInputTotals();el.value='';renderMoveCards();const nextEl=moveInput(id);if(nextEl)nextEl.focus();
+}
+function moveEnterAdd(e,id){if(e.key==='Enter'){e.preventDefault();adjustMoveCount(id,1)}}
+async function commitMovements(){
+ const draft=getMoveDraft(),ids=Object.keys(draft).filter(id=>Number(draft[id]?.qty)>0);if(!ids.length)return alert('端末入力数がありません');
+ const date=$('moveDate').value||today(),type=$('moveType').value;
+ if(!confirm(`${date} の ${ids.length}商品・合計${ids.reduce((s,id)=>s+Number(draft[id].qty||0),0)}点を${type}として登録します。よろしいですか？`))return;
+ busy(true,'入出庫を一括登録中…');let done=0;
+ try{
+  for(const id of ids){const item=draft[id],p=products.find(x=>x.id===id);if(!p)continue;
+   const data={type,date,productId:id,qty:item.qty,unitPrice:item.price??p.unitPrice,currency:item.currency??p.currency??'JPY',reference:$('moveRef').value,note:$('moveNote').value};
+   const r=await call('saveMovement',data);products=r.products;done++;delete draft[id];saveMoveInputTotals();
+  }
+  backlogs=await call('getOrderBacklogs');renderAll();$('moveRef').value='';$('moveNote').value='';toast(`${done}商品を${type}登録しました`);
+ }catch(e){renderMoveCards();alert(`${done}商品は登録済みです。残りは端末に保持しています。\n${e.message}`);busy(false)}
+}
+function clearMoveDraft(){const key=moveDraftKey();if(!confirm('この日付・区分の端末入力数をすべてクリアしますか？'))return;delete moveInputTotals[key];saveMoveInputTotals();renderMoveCards();toast('端末入力数をクリアしました')}
+function renderSupplierSelectors(){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort();['orderSupplier','stockSupplier','moveMaker'].forEach(id=>{const el=$(id),old=el.value;el.innerHTML='<option value="">メーカーを選択</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__UNASSIGNED__">メーカー未設定（仕入先未登録商品）</option>';if(makers.includes(old)||old==='__UNASSIGNED__')el.value=old;});}
+function normProductName(v){return String(v||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()}
+function sameProductName(a,b){return normProductName(a)===normProductName(b)}
+function filteredByMaker(maker){if(!maker)return products;if(maker==='__UNASSIGNED__')return products.filter(p=>!p.supplier);return products.filter(p=>p.supplier===maker)}
+function renderOrderProductOptions(){const maker=$('orderSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));$('orderProduct').innerHTML=names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');renderOrderVariantOptions()}
+function renderOrderVariantOptions(){const maker=$('orderSupplier').value,name=$('orderProduct').value;const list=filteredByMaker(maker).filter(p=>sameProductName(p.name,name));$('orderVariant').innerHTML='<option value="">バリエーションを選択</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}（${money(p.unitPrice,p.currency)}）</option>`).join('');syncOrderPrice()}
+function syncOrderPrice(){const p=products.find(x=>x.id===$('orderVariant').value);$('orderUnitPrice').value=p?Number(p.unitPrice)||0:0;if($('orderCurrency'))$('orderCurrency').value=p?(p.currency||'JPY'):'JPY'}
+function renderStockProductOptions(){const maker=$('stockSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));$('stockName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');renderStockVariantOptions()}
+function renderStockVariantOptions(){const maker=$('stockSupplier').value,name=$('stockName').value;const list=(maker?filteredByMaker(maker):[]).filter(p=>!name||sameProductName(p.name,name));$('stockVariant').innerHTML='<option value="">全バリエーション</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')} / 現在庫：${p.balance===null?'未棚卸':p.balance} / 棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}</option>`).join('')}
+const STOCK_INPUT_KEY='code_stock_input_totals_v2';
+let stockInputTotals={};
+try{stockInputTotals=JSON.parse(localStorage.getItem(STOCK_INPUT_KEY)||'{}')||{}}catch(e){stockInputTotals={}}
+function saveStockInputTotals(){try{localStorage.setItem(STOCK_INPUT_KEY,JSON.stringify(stockInputTotals))}catch(e){}}
+function stockDraftKey(){return $('stockDate').value||today()}
+function getStockDraft(){return stockInputTotals[stockDraftKey()]||(stockInputTotals[stockDraftKey()]={})}
+function renderStockRows(){
+ const q=($('stockSearch').value||'').toLowerCase(),maker=$('stockSupplier').value,name=$('stockName').value,variant=$('stockVariant').value,draft=getStockDraft();
+ const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!variant||p.id===variant)&&(`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q)));
+ $('stockRows').innerHTML=list.map(p=>{
+  const total=Number(draft[p.id])||0;
+  return `<div class="stock-card" data-stock-card="${p.id}"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div><div class="stock-current">最新の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}${p.stocktakeKind?'（'+esc(p.stocktakeKind)+'）':''}</div><span class="hint">（棚卸後の入出庫を反映した参考表示・今回入力には加算しません）</span></div><div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="stock-total-${p.id}">${total}</strong></div><div class="stock-edit-row"><input type="number" min="1" step="1" inputmode="numeric" data-stock-id="${p.id}" placeholder="棚卸数量を入力" value="" autocomplete="off" onfocus="this.select()" onkeydown="stockEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustStockCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustStockCount('${p.id}',-1)">－</button></div></div></div>`;
+ }).join('')||'<div class="hint">対象商品がありません</div>';
+ const count=Object.values(draft).filter(v=>Number(v)>0).length,total=Object.values(draft).reduce((s,v)=>s+(Number(v)||0),0);
+ if($('stockPendingSummary'))$('stockPendingSummary').textContent=`未確定：${count}商品 / ${total}点`;
+}
+function stockInput(id){return document.querySelector(`[data-stock-id="${CSS.escape(String(id))}"]`)}
+function adjustStockCount(id,mode){
+ const el=stockInput(id);if(!el)return;
+ const raw=String(el.value||'').trim(),qty=raw?Math.floor(Number(raw)):1;
+ if(!Number.isFinite(qty)||qty<=0){el.focus();return alert('数量を1以上で入力してください')}
+ const draft=getStockDraft(),next=(Number(draft[id])||0)+(mode>0?qty:-qty);
+ if(next<0)return alert('端末入力数は0未満にできません');
+ draft[id]=next;saveStockInputTotals();
+ el.value='';renderStockRows();
+ const nextEl=stockInput(id);if(nextEl)nextEl.focus();
+}
+function stockEnterAdd(e,id){if(e.key==='Enter'){e.preventDefault();adjustStockCount(id,1)}}
+async function commitStocktake(){
+ const draft=getStockDraft(),items=Object.keys(draft).filter(id=>Number(draft[id])>=0).map(productId=>({productId,qty:Number(draft[productId])}));
+ if(!items.length)return alert('端末入力数がありません');
+ const date=stockDraftKey();
+ if(!confirm(`${date} の ${items.length}商品を実棚数量として一括登録します。同じ日付の同じ商品は置き換わります。現在庫を更新します。よろしいですか？`))return;
+ busy(true,'棚卸を一括登録中…');
+ try{
+  const r=await call('saveStocktake',{date,kind:$('stockKind').value,note:'棚卸画面から一括確定',items});
+  delete stockInputTotals[date];saveStockInputTotals();products=r.products;renderAll();toast(`${r.count}商品を${date}の在庫として登録しました`);
+ }catch(e){alert(e.message);busy(false)}
+}
+function clearStockDraft(){
+ const date=stockDraftKey();if(!confirm(`${date} の端末入力数をすべてクリアしますか？`))return;
+ delete stockInputTotals[date];saveStockInputTotals();renderStockRows();toast('端末入力数をクリアしました');
+}
+let derivedOutflowCache=[];
+function initDerivedReportFilters(){
+ const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const makerEl=$('derivedMaker');
+ if(!makerEl)return;
+ const old=makerEl.value;
+ makerEl.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+ makerEl.value=makers.includes(old)?old:'';
+ renderDerivedMakerProducts();
+}
+function renderDerivedMakerProducts(){
+ const maker=$('derivedMaker')?.value||'';
+ const el=$('derivedProduct'); if(!el)return;
+ const old=el.value;
+ const list=[...new Set(products.filter(p=>!maker||p.supplier===maker).map(p=>p.name))].sort((a,b)=>a.localeCompare(b,'ja'));
+ el.innerHTML='<option value="">すべての商品</option>'+list.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+ el.value=list.includes(old)?old:'';
+ renderDerivedOutflow();
+}
+function renderDerivedOutflow(){
+ const maker=$('derivedMaker')?.value||'', productName=$('derivedProduct')?.value||'';
+ const rows=derivedOutflowCache.filter(x=>{
+  const p=products.find(p=>p.id===x.productId);
+  return (!maker||(p&&p.supplier===maker))&&(!productName||(p&&p.name===productName));
+ });
+ $('derivedOutRows').innerHTML=rows.length?rows.map(x=>x.status==='calculated'
+  ?`<tr><td>${esc(x.name)}</td><td class="num ${Number(x.qty)<0?'outflow-negative':''}">${x.qty}</td><td class="num ${Number(x.qty)-Number(x.latestStock)<0?'outflow-negative':''}">${Number(x.qty)-Number(x.latestStock)}</td><td><div style="display:flex;gap:6px;min-width:180px"><input type="number" min="1" step="1" placeholder="数量" style="width:85px" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div></td><td>${x.baseDate} ～ ${x.latestDate}</td><td>計算済</td></tr>`
+  :`<tr><td>${esc(x.name)}</td><td class="num">—</td><td>—</td><td>—</td><td>計算不可（${esc(x.reason)}）</td></tr>`).join()
+  :'<tr><td colspan="5">該当する商品がありません</td></tr>';
+}
+function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
+async function loadReports(){
+ busy(true,'棚卸差異を集計中…');
+ try{
+  const r=await call('getReports',$('reportFrom').value,$('reportTo').value);
+  derivedOutflowCache=r.derivedOutflow||[];
+  initDerivedReportFilters();
+  renderDerivedOutflow();
+  toast('推定出庫の集計が完了しました');
+ }catch(e){alert(e.message);busy(false)}
+}
+async function runAI(){busy(true,'Gemini分析中…');$('aiResult').textContent='指定期間の出庫傾向・現在庫・欠品リスクをAIが分析しています…';try{const r=await call('aiForecast',$('reportFrom').value,$('reportTo').value);$('aiResult').innerHTML=`<div class="hint">モデル：${esc(r.model)} / 対象期間：${esc(r.from)} ～ ${esc(r.to)} / リスク候補 ${r.candidateCount}商品</div><div style="white-space:pre-wrap;line-height:1.7;margin-top:8px">${esc(r.text)}</div>`;toast('AI分析完了')}catch(e){$('aiResult').textContent=e.message;busy(false)}}
+ function addSelectedOrderProduct(){const p=products.find(x=>x.id===$('orderVariant').value);if(!p)return alert('メーカー・商品・バリエーションを選択してください');const raw=$('orderQty').value,qty=Math.floor(Number(raw));if(!raw||!Number.isFinite(qty)||qty<1)return alert('数量を入力してください');const price=Math.max(0,Number($('orderUnitPrice').value)||0);addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:price,currency:$('orderCurrency').value});$('orderQty').value='';/* メーカーと商品は維持し、次のサイズだけ選び直せるようにする */$('orderVariant').value='';$('orderUnitPrice').value='';$('orderCurrency').value='JPY';refreshOrderPreview()}
+function addOrderLine(p={}){const div=document.createElement('div');div.className='orderline';div.dataset.productId=p.productId||'';div.innerHTML=`<div class="field wide"><label>商品・メーカー</label><input class="ol-name" readonly value="${esc(p.name||'')}" placeholder="商品選択から追加"></div><div class="field"><label>バリエーション</label><input class="ol-size" readonly value="${esc(p.size||'')}"></div><div class="field"><label>数量</label><input class="ol-qty" type="number" min="0" step="1" value="${p.qty||1}"></div><div class="field"><label>単価</label><input class="ol-price" type="number" min="0" step="0.01" value="${p.unitPrice||0}"></div><div class="field"><label>通貨</label><select class="ol-currency"><option value="JPY" ${p.currency!=='USD'?'selected':''}>JPY</option><option value="USD" ${p.currency==='USD'?'selected':''}>USD</option></select></div><button class="btn warn small" onclick="this.parentElement.remove();calcOrder();refreshOrderPreview()">削除</button>`;['ol-qty','ol-price'].forEach(c=>div.querySelector('.'+c).oninput=()=>{calcOrder();refreshOrderPreview()});$('orderLines').appendChild(div);calcOrder()}
+function getOrderLines(){return [...document.querySelectorAll('.orderline')].map(d=>({productId:d.dataset.productId,name:d.querySelector('.ol-name').value,size:d.querySelector('.ol-size').value,qty:Number(d.querySelector('.ol-qty').value)||0,unitPrice:Number(d.querySelector('.ol-price').value)||0,currency:d.querySelector('.ol-currency').value})).filter(x=>x.qty>0)}
+function groupPreviewLines(lines){const out=[],index=new Map();for(const x of lines){const key=[String(x.name||''),String(x.size||''),Number(x.unitPrice)||0,String(x.currency||'JPY')].join('\u001f');if(index.has(key)){out[index.get(key)].qty+=Number(x.qty)||0}else{index.set(key,out.length);out.push({...x,qty:Number(x.qty)||0})}}return out}
+function calcOrder(){const total=getOrderLines().reduce((s,x)=>s+x.qty*x.unitPrice,0);$('orderTotal').textContent='合計：'+money(total,getOrderLines()[0]?.currency||'JPY')}
+async function saveSingleOrder(){const lines=getOrderLines();if(!lines.length)return alert('発注明細を入力してください');if(!$('orderSupplier').value)return alert('メーカーを選択してください');busy(true,'発注保存中…');try{orders=await call('saveOrder',{supplier:$('orderSupplier').value,orderDate:$('orderDate').value,deliveryDate:$('deliveryDate').value,note:$('orderNote').value,lines});backlogs=await call('getOrderBacklogs');renderBacklogs();renderOrders();refreshOrderPreview();toast('発注を保存しました')}catch(e){alert(e.message);busy(false)}}
+function refreshOrderPreview(){const lines=groupPreviewLines(getOrderLines()),maker=$('orderSupplier').value||'メーカー未選択',date=$('orderDate').value||today(),delivery=$('deliveryDate').value||'未定',total=lines.reduce((s,x)=>s+x.qty*x.unitPrice,0);$('orderPreview').innerHTML=`<div id="printOrderArea" style="font-family:Arial,'Noto Sans JP',sans-serif;color:#172033"><div style="text-align:center;font-size:22px;font-weight:700;border-bottom:2px solid #222;padding:8px">発 注 書</div><div style="display:flex;justify-content:space-between;margin:16px 0"><div><b>${esc(maker)} 御中</b><p>下記の通り発注いたします。</p></div><div>発注日：${esc(date)}<br>納品期限：${esc(delivery)}<br>発注元：株式会社竹山商事</div></div><table style="width:100%;border-collapse:collapse"><thead><tr>${['商品名','サイズ・色','数量','単価','金額'].map(x=>`<th style="border:1px solid #555;padding:7px;background:#edf1f5">${x}</th>`).join('')}</tr></thead><tbody>${lines.map(x=>`<tr>${[x.name,x.size,x.qty.toLocaleString('ja-JP'),money(x.unitPrice,x.currency),money(x.qty*x.unitPrice,x.currency)].map(v=>`<td style="border:1px solid #555;padding:7px;white-space:pre-line">${esc(v)}</td>`).join('')}</tr>`).join('')}</tbody></table><div style="text-align:right;font-size:18px;font-weight:bold;margin-top:14px">合計金額：${lines.length?money(total,lines[0].currency):money(0,'JPY')}</div><p style="margin-top:28px">備考：${esc($('orderNote').value||'')}</p></div>`}
+function downloadOrderPdf(){if(!getOrderLines().length)return alert('先に発注明細を追加してください');refreshOrderPreview();const area=$('printOrderArea');const w=window.open('','_blank');if(!w)return alert('ポップアップを許可してください');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>発注書</title><style>@page{size:A4 portrait;margin:14mm}body{font-family:Arial,'Noto Sans JP',sans-serif}table{font-size:12px}tr{page-break-inside:avoid}@media print{button{display:none}}</style></head><body>${area.outerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),500)}
+async function makeSplit(){const lines=getOrderLines();if(!lines.length)return alert('発注明細を入力してください');busy(true,'金額均等配分中…');try{splitDraft=await call('createSplitPlan',{count:$('splitCount').value,lines});renderSplit(splitDraft);toast('分割案を作成しました')}catch(e){alert(e.message);busy(false)}}
+function renderSplit(plan){$('splitResult').innerHTML=`<h2 style="margin-top:20px">分割案（保存前に数量を調整できます）</h2><p class="hint">元合計 ${money(plan.originalTotal,plan.currency)} / 分割合計 ${money(plan.distributedTotal,plan.currency)} / 各回差額幅 ${money(plan.spread,plan.currency)}</p>`+plan.batches.map(b=>`<div class="splitbatch" data-batch="${b.index}"><div class="row"><b>${b.index}回目</b><strong class="batch-total">${money(b.total,plan.currency)}</strong><div class="field"><label>発注日</label><input class="batch-order-date" type="date" value="${$('orderDate').value||today()}"></div><div class="field"><label>納期</label><input class="batch-delivery-date" type="date" value="${$('deliveryDate').value||''}"></div></div>${b.lines.map(l=>`<div class="splitline" data-line="${l.lineIndex}"><span>${esc(l.name)} ${esc(l.size)}</span><input class="batch-qty" type="number" min="0" step="1" value="${l.qty}" data-price="${l.unitPrice}" data-currency="${l.currency||'JPY'}" data-name="${esc(l.name)}" data-size="${esc(l.size)}" data-pid="${l.productId}"><span>${money(l.amount,l.currency||plan.currency)}</span></div>`).join('')}</div>`).join('')+`<div class="row"><strong id="splitGrand">分割合計：${money(plan.distributedTotal,plan.currency)}</strong><button class="btn green" onclick="saveSplit()">この分割内容で保存</button></div>`;document.querySelectorAll('.batch-qty').forEach(x=>x.oninput=calcSplitManual)}
+function calcSplitManual(){let total=0;document.querySelectorAll('.splitbatch').forEach(b=>{let n=0;b.querySelectorAll('.batch-qty').forEach(x=>n+=(Number(x.value)||0)*(Number(x.dataset.price)||0));b.querySelector('.batch-total').textContent=money(n,b.querySelector('.batch-qty')?.dataset.currency||'JPY');total+=n});$('splitGrand').textContent='分割合計：'+money(total,document.querySelector('.batch-qty')?.dataset.currency||'JPY')}
+async function saveSplit(){const batches=[...document.querySelectorAll('.splitbatch')].map((b,i)=>({lines:[...b.querySelectorAll('.splitline')].map(l=>{const x=l.querySelector('.batch-qty');return {lineIndex:Number(l.dataset.line),productId:x.dataset.pid,name:x.dataset.name,size:x.dataset.size,qty:Number(x.value)||0,unitPrice:Number(x.dataset.price)||0,currency:x.dataset.currency||'JPY',amount:(Number(x.value)||0)*(Number(x.dataset.price)||0)}}).filter(x=>x.qty>0)}));const total=batches.reduce((s,b)=>s+b.lines.reduce((a,x)=>a+x.amount,0),0);if(total!==splitDraft.originalTotal)return alert('分割金額が元の発注合計と一致しません。数量を調整してください。');const dates=[...document.querySelectorAll('.splitbatch')];busy(true,'分割発注保存中…');try{orders=await call('saveSplitPlan',{supplier:$('orderSupplier').value,note:$('orderNote').value,plan:{count:batches.length,distributedTotal:total,batches},orderDates:dates.map(x=>x.querySelector('.batch-order-date').value),deliveryDates:dates.map(x=>x.querySelector('.batch-delivery-date').value)});renderOrders();toast('分割発注を保存しました')}catch(e){alert(e.message);busy(false)}}
+function initBacklogFilters(){
+ const el=$('backlogMaker');if(!el)return;const old=el.value;
+ const makers=[...new Set((backlogs||[]).map(x=>x.supplier||products.find(p=>p.id===x.productId)?.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ el.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');el.value=makers.includes(old)?old:'';renderBacklogProducts();
+}
+function renderBacklogProducts(){
+ const maker=$('backlogMaker')?.value||'',el=$('backlogProduct');if(!el)return;const old=el.value;
+ const names=[...new Set((backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId);return !maker||(x.supplier||p?.supplier)===maker}).map(x=>x.name))].sort((a,b)=>a.localeCompare(b,'ja'));
+ el.innerHTML='<option value="">すべての商品</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');el.value=names.includes(old)?old:'';renderBacklogVariants();
+}
+function renderBacklogVariants(){
+ const maker=$('backlogMaker')?.value||'',name=$('backlogProduct')?.value||'',el=$('backlogVariant');if(!el)return;const old=el.value;
+ const vals=[...new Set((backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId);return (!maker||(x.supplier||p?.supplier)===maker)&&(!name||x.name===name)}).map(x=>x.size||'標準'))].sort((a,b)=>a.localeCompare(b,'ja'));
+ el.innerHTML='<option value="">すべて</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=vals.includes(old)?old:'';renderBacklogs();
+}
+function renderBacklogs(){
+ const maker=$('backlogMaker')?.value||'',name=$('backlogProduct')?.value||'',variant=$('backlogVariant')?.value||'',f=$('backlogFilter')?.value||'all';
+ const total=backlogs.reduce((s,x)=>s+(Number(x.remaining)||0),0);if($('backlogTotal'))$('backlogTotal').textContent='現在の受注残合計：'+total.toLocaleString('ja-JP');
+ const list=(backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId),m=x.supplier||p?.supplier;return (!maker||m===maker)&&(!name||x.name===name)&&(!variant||(x.size||'標準')===variant)&&(f==='all'||(f==='remaining'&&Number(x.remaining)>0)||(f==='unmapped'&&!x.productId));});
+ $('backlogRows').innerHTML=list.map(x=>`<tr><td>${esc(x.name)}</td><td class="size">${esc(x.size)}</td><td class="num">${Number(x.initial||0).toLocaleString('ja-JP')}</td><td class="num"><b>${Number(x.remaining||0).toLocaleString('ja-JP')}</b></td><td>${esc(x.source)}</td><td>${x.productId?'<span class="pill green">紐づけ済</span>':'<span class="pill red">未紐づけ</span>'}</td></tr>`).join('')||'<tr><td colspan="6">該当する受注残がありません</td></tr>';
+}
+
+function renderOrders(){
+ const maker=$('orderHistoryMaker')?.value||'',q=($('orderHistorySearch')?.value||'').toLowerCase(),status=$('orderHistoryStatus')?.value||'';
+ const makers=[...new Set((orders||[]).map(o=>o['仕入先']).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ if($('orderHistoryMaker')){$('orderHistoryMaker').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('orderHistoryMaker').value=makers.includes(maker)?maker:''}
+ const list=(orders||[]).filter(o=>{
+  const lineText=(o.lines||[]).map(l=>`${l['商品名']||l.name||''} ${l['サイズ']||l.size||''}`).join(' ');
+  const hay=`${o['発注ID']} ${o['仕入先']} ${lineText}`.toLowerCase();
+  return(!maker||o['仕入先']===maker)&&(!status||o['状態']===status)&&(!q||hay.includes(q));
+ });
+ $('orderRows').innerHTML=list.map(o=>`<tr><td>${esc(o['発注ID'])}</td><td>${esc(o['仕入先'])}</td><td>${esc(o['発注日'])}</td><td>${esc(o['納期'])}</td><td>${o['分割回']}/${o['分割数']}</td><td class="num">${money(o['合計金額'],o['通貨']||'JPY')}</td><td><span class="pill">${esc(o['状態'])}</span></td><td><select onchange="changeStatus('${esc(o['発注ID'])}',this.value)"><option value="">状態変更</option>${['下書き','発注済','一部入荷','完了','取消'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('')||'<tr><td colspan="8">該当する発注がありません</td></tr>';
+}
+async function changeStatus(id,status){if(!status)return;try{orders=await call('updateOrderStatus',id,status);renderOrders();toast('状態を更新しました')}catch(e){alert(e.message)}}
+function renderMakerLinkRows(){
+ const search=($('makerLinkSearch')?.value||'').trim().toLowerCase();
+ const list=products.filter(p=>!String(p.supplier||'').trim()&&`${p.name} ${p.size} ${p.id}`.toLowerCase().includes(search));
+ const selected=new Set([...document.querySelectorAll('.maker-link-check:checked')].map(x=>x.value));
+ $('makerLinkRows').innerHTML=list.map(p=>`<tr><td><input class="maker-link-check" type="checkbox" value="${esc(p.id)}" ${selected.has(p.id)?'checked':''} onchange="updateMakerLinkCount()" style="width:18px;min-height:18px"></td><td>${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.id)}</td></tr>`).join('');
+ const makers=[...new Set(products.map(p=>String(p.supplier||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const old=$('makerLinkExisting').value;
+ $('makerLinkExisting').innerHTML='<option value="">既存メーカーを選択</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+ if(makers.includes(old))$('makerLinkExisting').value=old;
+ $('makerLinkAll').checked=false;updateMakerLinkCount();
+}
+function updateMakerLinkCount(){const n=document.querySelectorAll('.maker-link-check:checked').length;$('makerLinkCount').textContent=n+'件選択'}
+function toggleMakerLinkAll(){document.querySelectorAll('#makerLinkRows .maker-link-check').forEach(x=>x.checked=$('makerLinkAll').checked);updateMakerLinkCount()}
+async function saveMakerLinks(){
+ const productIds=[...document.querySelectorAll('#makerLinkRows .maker-link-check:checked')].map(x=>x.value);
+ const supplier=($('makerLinkNew').value||'').trim()||$('makerLinkExisting').value;
+ if(!productIds.length)return alert('メーカーを紐づける商品を選択してください');
+ if(!supplier)return alert('既存メーカーを選択するか、新しいメーカー名を入力してください');
+ if(!confirm(`${productIds.length}商品を「${supplier}」に紐づけます。よろしいですか？`))return;
+ busy(true,'メーカーを紐づけ中…');
+ try{const r=await call('setProductSuppliersManually',{productIds,supplier});products=r.products;renderAll();$('makerLinkNew').value='';$('makerLinkExisting').value=supplier;renderMakerLinkRows();toast(`${r.count}商品を${supplier}に紐づけました`)}catch(e){alert(e.message);busy(false)}
+}
+function renderSettingProducts(){const q=($('settingSearch')?.value||'').toLowerCase();const list=products.filter(p=>`${p.name} ${p.size}`.toLowerCase().includes(q)).slice(0,100);$('settingRows').innerHTML=list.map(p=>`<tr data-setting-id="${p.id}"><td>${esc(p.name)} <span class="size">${esc(p.size)}</span></td><td><input class="set-supplier" value="${esc(p.supplier)}"></td><td><input class="set-reorder" type="number" min="0" value="${p.reorderPoint}" style="width:90px"></td><td><input class="set-price" type="number" min="0" step="0.01" value="${p.unitPrice}" style="width:110px"></td><td><select class="set-currency"><option value="JPY" ${p.currency!=='USD'?'selected':''}>JPY</option><option value="USD" ${p.currency==='USD'?'selected':''}>USD</option></select></td></tr>`).join('')}
+async function saveProductSettings(){const data=[...document.querySelectorAll('[data-setting-id]')].map(r=>({id:r.dataset.settingId,supplier:r.querySelector('.set-supplier').value,reorderPoint:r.querySelector('.set-reorder').value,unitPrice:r.querySelector('.set-price').value,currency:r.querySelector('.set-currency').value}));try{products=await call('setProductSettings',data);renderAll();toast('商品設定を保存しました')}catch(e){alert(e.message)}}
+async function saveGeminiKey(){const k=$('geminiKey').value;if(!k)return alert('APIキーを入力してください');try{settings=await call('setGeminiApiKey',k);$('geminiKey').value='';$('keyStatus').textContent='APIキー登録済み';toast('APIキーを安全に保存しました')}catch(e){alert(e.message)}}
+init();
+</script>
+</body>
+</html>
