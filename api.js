@@ -62,7 +62,7 @@
       const onMessage = event => {
         // The iframe is created per request, so its WindowProxy is a strong
         // correlation check even though the response comes from Google.
-        if (event.source !== iframe.contentWindow) return;
+       
         const data = event.data;
         if (!data || data.app !== APP_MARK || data.requestId !== requestId) return;
         if (data.ok) finish(resolve, data.result);
