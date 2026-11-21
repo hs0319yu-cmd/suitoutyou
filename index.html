@@ -43,7 +43,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 .splitline{display:grid;grid-template-columns:2fr .6fr .8fr;gap:8px;align-items:center;padding:5px 0;border-bottom:1px dashed var(--line)}
 footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 @media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cards{grid-template-columns:1fr}.formgrid{grid-template-columns:1fr 1fr}}
-@media(max-width:600px){header{padding:11px 12px}.brand{font-size:17px}main{padding:0 10px 50px;margin:12px auto}h1{font-size:20px}.grid{gap:8px}.stat{padding:12px}.stat strong{font-size:23px}.panel{padding:12px}.formgrid{grid-template-columns:1fr}.orderline{grid-template-columns:1fr 1fr}.orderline .wide{grid-column:1/-1}.toolbar .field{max-width:none;min-width:130px}.tablewrap{max-height:60vh}th,td{padding:9px 8px}}
+@media(max-width:600px){header{padding:11px 12px}.brand{font-size:17px}main{padding:0 10px 50px;margin:12px auto}h1{font-size:20px}.grid{gap:8px}.stat{padding:12px}.stat strong{font-size:23px}.panel{padding:12px}.formgrid{grid-template-columns:1fr}.orderline{grid-template-columns:1fr 1fr}.orderline .wide{grid-column:1/-1}.toolbar .field{max-width:none;min-width:130px}.tablewrap{max-height:60vh}th,td{padding:9px 8px}.stock-card-list{grid-template-columns:1fr}.row>.field{min-width:100%}#settingRows input,#settingRows select{min-width:105px}}
 </style>
 </head>
 <body>
@@ -131,8 +131,8 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
    <div class="field"><label>商品</label><select id="derivedProduct" onchange="renderDerivedOutflow()"><option value="">すべての商品</option></select></div>
    <button class="btn" onclick="loadReports()">集計</button>
   </div>
-  <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を終了在庫として、基準在庫＋採用棚卸間の入庫－終了棚卸在庫で推定出庫を計算します。マイナス値もそのまま表示します。棚卸履歴が1回以下の商品は計算不可です。</p>
-  <div class="tablewrap"><table><thead><tr><th>商品</th><th>推定出庫</th><th>発注の目安</th><th>発注数量</th><th>採用棚卸期間</th><th>判定</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
+  <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を最新在庫として採用します。期間出庫数＝基準棚卸在庫＋基準棚卸後～最新棚卸までの入庫数－最新棚卸在庫。1日平均出庫数＝期間出庫数÷棚卸期間日数。補充目安・欠品予測は現在庫を使って計算します。マイナスの出庫数もそのまま表示します。</p>
+  <div class="tablewrap"><table><thead><tr><th>商品</th><th>基準棚卸日 / 在庫</th><th>期間入庫</th><th>最新棚卸日 / 在庫</th><th>期間出庫数</th><th>期間日数</th><th>1日平均出庫数</th><th>現在庫</th><th>補充ライン</th><th>補充目安</th><th>欠品予測</th><th>発注数量</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
  </div>
 </section>
 
@@ -195,10 +195,30 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div id="keyStatus" class="hint" style="margin-top:8px"></div>
   <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
   <h2>商品ごとの仕入先・補充ライン・単価</h2>
-  <p class="hint">仕入先・補充ライン・単価をいつでも変更できます。値上げ時は新しい単価を入力して「商品設定を保存」してください。単価変更は操作ログに旧価格・新価格・変更日を記録し、過去の発注書の単価は変更しません。</p>
-  <div class="field"><label>商品検索</label><input id="settingSearch" placeholder="商品名で検索" oninput="renderSettingProducts()"></div>
-  <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>商品</th><th>仕入先</th><th>補充ライン</th><th>現在単価（変更可）</th><th>通貨</th></tr></thead><tbody id="settingRows"></tbody></table></div>
-  <button class="btn green" style="margin-top:12px" onclick="saveProductSettings()">商品設定を保存</button>
+  <p class="hint">メーカー・仕入先で商品を絞り込み、商品ごとに仕入先・補充ライン・単価を変更できます。複数商品を選択して一括変更もできます。単価変更は操作ログに旧価格・新価格・変更日を記録し、過去の発注書の単価は変更しません。</p>
+  <div class="toolbar">
+   <div class="field"><label>メーカー・仕入先</label><select id="settingSupplierFilter" onchange="renderSettingProducts()"><option value="">全仕入先</option></select></div>
+   <div class="field"><label>商品検索</label><input id="settingSearch" placeholder="商品名・サイズで検索" oninput="renderSettingProducts()"></div>
+  </div>
+  <div class="panel" style="background:#f8fafc;margin:10px 0">
+   <div class="row" style="align-items:center">
+    <label style="display:flex;align-items:center;gap:7px"><input id="settingSelectAll" type="checkbox" style="width:18px;min-height:18px" onchange="toggleSettingSelectAll()">表示中の商品をすべて選択</label>
+    <strong id="settingSelectedCount" class="muted">0件選択</strong>
+   </div>
+   <div class="row" style="margin-top:10px">
+    <div class="field"><label>一括変更する仕入先（登録済み）</label><select id="settingBulkSupplier"><option value="">変更しない</option></select></div>
+    <div class="field"><label>新しい仕入先名（任意）</label><input id="settingBulkNewSupplier" placeholder="新規登録・変更する場合"></div>
+    <div class="field"><label>一括変更する補充ライン</label><input id="settingBulkReorder" type="number" min="0" placeholder="空欄なら変更しない"></div>
+    <div class="field"><label>一括変更する単価</label><input id="settingBulkPrice" type="number" min="0" step="0.01" placeholder="空欄なら変更しない"></div>
+    <button class="btn secondary" onclick="applySettingBulk()">選択商品に一括適用</button>
+   </div>
+   <div class="hint" style="margin-top:8px">一括適用後は、画面下の「商品設定を保存」を押すと反映されます。</div>
+  </div>
+  <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>選択</th><th>商品</th><th>仕入先</th><th>補充ライン</th><th>単価</th><th>通貨</th></tr></thead><tbody id="settingRows"></tbody></table></div>
+  <div class="row" style="margin-top:12px">
+   <button class="btn green" onclick="saveProductSettings()">商品設定を保存</button>
+   <button class="btn warn" onclick="zeroAllReorderLines()">補充ラインをすべて0にする</button>
+  </div>
  </div>
 </section>
 </main>
@@ -224,9 +244,9 @@ function init(){
  $('stockSupplier').onchange=()=>{renderStockProductOptions();renderStockRows()};$('stockName').onchange=()=>{renderStockVariantOptions();renderStockRows()};$('stockVariant').onchange=renderStockRows;
  loadAll();
 }
-function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
+function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings'){initSettingFilters();renderSettingProducts();}if(id==='makerlink')renderMakerLinkRows()}
 async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119'),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
-function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProducts();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
+function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();initSettingFilters();renderSettingProducts();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
  $('lowList').innerHTML=low.length?low.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　現在庫 ${p.balance} / 補充 ${p.reorderPoint}</div>`).join(''):'該当商品なし';
@@ -385,10 +405,39 @@ function renderDerivedOutflow(){
   const p=products.find(p=>p.id===x.productId);
   return (!maker||(p&&p.supplier===maker))&&(!productName||(p&&p.name===productName));
  });
- $('derivedOutRows').innerHTML=rows.length?rows.map(x=>x.status==='calculated'
-  ?`<tr><td>${esc(x.name)}</td><td class="num ${Number(x.qty)<0?'outflow-negative':''}">${x.qty}</td><td class="num ${Number(x.qty)-Number(x.latestStock)<0?'outflow-negative':''}">${Number(x.qty)-Number(x.latestStock)}</td><td><div style="display:flex;gap:6px;min-width:180px"><input type="number" min="1" step="1" placeholder="数量" style="width:85px" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div></td><td>${x.baseDate} ～ ${x.latestDate}</td><td>計算済</td></tr>`
-  :`<tr><td>${esc(x.name)}</td><td class="num">—</td><td>—</td><td>—</td><td>計算不可（${esc(x.reason)}）</td></tr>`).join()
-  :'<tr><td colspan="5">該当する商品がありません</td></tr>';
+ const fmtDays=v=>Number.isFinite(v)?`${Math.round(v*10)/10}日`:'—';
+ $('derivedOutRows').innerHTML=rows.length?rows.map(x=>{
+  const p=products.find(p=>p.id===x.productId)||{};
+  if(x.status!=='calculated'){
+   return `<tr><td>${esc(x.name)}</td><td colspan="10">計算不可：${esc(x.reason||'棚卸履歴が不足しています')}</td><td>—</td></tr>`;
+  }
+  const base=Number(x.baseStock)||0;
+  const inbound=Number(x.inbound)||0;
+  const latest=Number(x.latestStock)||0;
+  const outflow=base+inbound-latest;
+  const days=Number(x.days)||0;
+  const daily=days>0?outflow/days:0;
+  const stock=p.balance===null||p.balance===undefined?null:Number(p.balance);
+  const line=Number(p.reorderPoint)||0;
+  const replenish=(stock!==null&&daily!==0)?(stock-line)/daily:null;
+  const stockout=(stock!==null&&daily!==0)?stock/daily:null;
+  const qtyClass=outflow<0?'outflow-negative':'';
+  const dailyClass=daily<0?'outflow-negative':'';
+  return `<tr>
+   <td class="product-name">${esc(x.name)}</td>
+   <td>${esc(x.baseDate||'—')} / <b>${base}</b></td>
+   <td class="num">${inbound}</td>
+   <td>${esc(x.latestDate||'—')} / <b>${latest}</b></td>
+   <td class="num ${qtyClass}"><b>${outflow}</b></td>
+   <td class="num">${days||'—'}</td>
+   <td class="num ${dailyClass}">${days>0?daily.toFixed(2):'—'}</td>
+   <td class="num">${stock===null?'未棚卸':stock}</td>
+   <td class="num">${line}</td>
+   <td class="num">${replenish===null?'—':fmtDays(replenish)}</td>
+   <td class="num">${stockout===null?'—':fmtDays(stockout)}</td>
+   <td><div style="display:flex;gap:6px;min-width:180px"><input type="number" min="1" step="1" placeholder="数量" style="width:85px" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div></td>
+  </tr>`;
+ }).join():'<tr><td colspan="12">該当する商品がありません</td></tr>';
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
@@ -470,8 +519,104 @@ async function saveMakerLinks(){
  busy(true,'メーカーを紐づけ中…');
  try{const r=await call('setProductSuppliersManually',{productIds,supplier});products=r.products;renderAll();$('makerLinkNew').value='';$('makerLinkExisting').value=supplier;renderMakerLinkRows();toast(`${r.count}商品を${supplier}に紐づけました`)}catch(e){alert(e.message);busy(false)}
 }
-function renderSettingProducts(){const q=($('settingSearch')?.value||'').toLowerCase();const list=products.filter(p=>`${p.name} ${p.size}`.toLowerCase().includes(q)).slice(0,100);$('settingRows').innerHTML=list.map(p=>`<tr data-setting-id="${p.id}"><td>${esc(p.name)} <span class="size">${esc(p.size)}</span></td><td><input class="set-supplier" value="${esc(p.supplier)}"></td><td><input class="set-reorder" type="number" min="0" value="${p.reorderPoint}" style="width:90px"></td><td><input class="set-price" type="number" min="0" step="0.01" value="${p.unitPrice}" style="width:110px"></td><td><select class="set-currency"><option value="JPY" ${p.currency!=='USD'?'selected':''}>JPY</option><option value="USD" ${p.currency==='USD'?'selected':''}>USD</option></select></td></tr>`).join('')}
-async function saveProductSettings(){const data=[...document.querySelectorAll('[data-setting-id]')].map(r=>({id:r.dataset.settingId,supplier:r.querySelector('.set-supplier').value,reorderPoint:r.querySelector('.set-reorder').value,unitPrice:r.querySelector('.set-price').value,currency:r.querySelector('.set-currency').value}));try{products=await call('setProductSettings',data);renderAll();toast('商品設定を保存しました')}catch(e){alert(e.message)}}
+let settingDraft={};
+let settingVisibleIds=[];
+function settingSuppliers(){
+ return [...new Set(products.map(p=>String(p.supplier||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+}
+function settingValue(p,key){
+ const d=settingDraft[String(p.id)];
+ return d&&Object.prototype.hasOwnProperty.call(d,key)?d[key]:p[key];
+}
+function updateSettingDraft(id,key,value){
+ const p=products.find(x=>String(x.id)===String(id));if(!p)return;
+ if(!settingDraft[String(id)])settingDraft[String(id)]={id:p.id};
+ settingDraft[String(id)][key]=value;
+}
+function initSettingFilters(){
+ const filter=$('settingSupplierFilter'),bulk=$('settingBulkSupplier');if(!filter||!bulk)return;
+ const old=filter.value,oldBulk=bulk.value,makers=settingSuppliers();
+ filter.innerHTML='<option value="">全仕入先</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+ filter.value=makers.includes(old)?old:'';
+ bulk.innerHTML='<option value="">変更しない</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
+ bulk.value=makers.includes(oldBulk)?oldBulk:'';
+}
+function renderSettingProducts(){
+ const q=($('settingSearch')?.value||'').toLowerCase(),supplier=$('settingSupplierFilter')?.value||'';
+ const list=products.filter(p=>(!supplier||String(p.supplier||'')===supplier)&&`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q));
+ settingVisibleIds=list.map(p=>String(p.id));
+ const makers=settingSuppliers();
+ $('settingRows').innerHTML=list.map(p=>{
+  const id=String(p.id),s=String(settingValue(p,'supplier')||''),reorder=Number(settingValue(p,'reorderPoint'))||0,price=Number(settingValue(p,'unitPrice'))||0,currency=settingValue(p,'currency')||'JPY';
+  const options='<option value="">未設定</option>'+makers.map(m=>`<option value="${esc(m)}" ${s===m?'selected':''}>${esc(m)}</option>`).join('');
+  return `<tr data-setting-id="${esc(id)}">
+   <td><input class="setting-check" type="checkbox" value="${esc(id)}" onchange="updateSettingSelectedCount()" style="width:18px;min-height:18px"></td>
+   <td>${esc(p.name)} <span class="size">${esc(p.size)}</span></td>
+   <td><select class="set-supplier" onchange="updateSettingDraft('${esc(id)}','supplier',this.value)">${options}</select></td>
+   <td><input class="set-reorder" type="number" min="0" value="${reorder}" style="width:95px" onchange="updateSettingDraft('${esc(id)}','reorderPoint',this.value)"></td>
+   <td><input class="set-price" type="number" min="0" step="0.01" value="${price}" style="width:110px" onchange="updateSettingDraft('${esc(id)}','unitPrice',this.value)"></td>
+   <td><select class="set-currency" onchange="updateSettingDraft('${esc(id)}','currency',this.value)"><option value="JPY" ${currency!=='USD'?'selected':''}>JPY</option><option value="USD" ${currency==='USD'?'selected':''}>USD</option></select></td>
+  </tr>`;
+ }).join('')||'<tr><td colspan="6">該当する商品がありません</td></tr>';
+ $('settingSelectAll').checked=false;updateSettingSelectedCount();
+}
+function updateSettingSelectedCount(){
+ const n=document.querySelectorAll('#settingRows .setting-check:checked').length;
+ $('settingSelectedCount').textContent=n+'件選択';
+}
+function toggleSettingSelectAll(){
+ const checked=$('settingSelectAll').checked;
+ document.querySelectorAll('#settingRows .setting-check').forEach(x=>x.checked=checked);
+ updateSettingSelectedCount();
+}
+function applySettingBulk(){
+ const ids=[...document.querySelectorAll('#settingRows .setting-check:checked')].map(x=>x.value);
+ if(!ids.length)return alert('一括変更する商品を選択してください');
+ const supplier=($('settingBulkNewSupplier').value||'').trim()||$('settingBulkSupplier').value;
+ const reorderRaw=$('settingBulkReorder').value.trim();
+ const priceRaw=$('settingBulkPrice').value.trim();
+ if(!supplier&&reorderRaw===''&&priceRaw==='')return alert('一括変更する仕入先・補充ライン・単価のいずれかを入力してください');
+ if(reorderRaw!==''&&(!Number.isFinite(Number(reorderRaw))||Number(reorderRaw)<0))return alert('補充ラインは0以上で入力してください');
+ if(priceRaw!==''&&(!Number.isFinite(Number(priceRaw))||Number(priceRaw)<0))return alert('単価は0以上で入力してください');
+ ids.forEach(id=>{
+  if(supplier)updateSettingDraft(id,'supplier',supplier);
+  if(reorderRaw!=='')updateSettingDraft(id,'reorderPoint',Number(reorderRaw));
+  if(priceRaw!=='')updateSettingDraft(id,'unitPrice',Number(priceRaw));
+ });
+ renderSettingProducts();
+ toast(`${ids.length}商品に一括適用しました。保存ボタンで確定してください`);
+}
+async function saveProductSettings(){
+ const rows=Object.values(settingDraft);
+ if(!rows.length)return alert('変更内容がありません');
+ const data=rows.map(p=>{
+  const base=products.find(x=>String(x.id)===String(p.id))||{};
+  return {
+   id:p.id,
+   supplier:p.supplier!==undefined?p.supplier:(base.supplier||''),
+   reorderPoint:p.reorderPoint!==undefined?p.reorderPoint:(base.reorderPoint||0),
+   unitPrice:p.unitPrice!==undefined?p.unitPrice:(base.unitPrice||0),
+   currency:p.currency!==undefined?p.currency:(base.currency||'JPY')
+  };
+ });
+ try{
+  busy(true,'商品設定を保存中…');
+  products=await call('setProductSettings',data);
+  settingDraft={};renderAll();initSettingFilters();renderSettingProducts();
+  toast(`${data.length}商品の設定を保存しました`);
+ }catch(e){alert(e.message);busy(false)}
+}
+async function zeroAllReorderLines(){
+ if(!products.length)return alert('商品データがありません');
+ if(!confirm(`全${products.length}商品の補充ラインをすべて0に変更します。元に戻すには再設定が必要です。実行しますか？`))return;
+ const data=products.map(p=>({id:p.id,supplier:p.supplier||'',reorderPoint:0,unitPrice:p.unitPrice||0,currency:p.currency||'JPY'}));
+ try{
+  busy(true,'全商品の補充ラインを0に更新中…');
+  products=await call('setProductSettings',data);
+  settingDraft={};renderAll();initSettingFilters();renderSettingProducts();
+  toast(`全${data.length}商品の補充ラインを0にしました`);
+ }catch(e){alert(e.message);busy(false)}
+}
 async function saveGeminiKey(){const k=$('geminiKey').value;if(!k)return alert('APIキーを入力してください');try{settings=await call('setGeminiApiKey',k);$('geminiKey').value='';$('keyStatus').textContent='APIキー登録済み';toast('APIキーを安全に保存しました')}catch(e){alert(e.message)}}
 init();
 </script>
