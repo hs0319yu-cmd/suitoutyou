@@ -132,7 +132,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
    <button class="btn" onclick="loadReports()">集計</button>
   </div>
   <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を最新在庫として採用します。期間出庫数＝基準棚卸在庫＋基準棚卸後～最新棚卸までの入庫数－最新棚卸在庫。1日平均出庫数＝期間出庫数÷棚卸期間日数。補充目安・欠品予測は現在庫を使って計算します。マイナスの出庫数もそのまま表示します。</p>
-  <div class="tablewrap"><table><thead><tr><th>商品</th><th>基準棚卸日 / 在庫</th><th>期間入庫</th><th>最新棚卸日 / 在庫</th><th>期間出庫数</th><th>期間日数</th><th>1日平均出庫数</th><th>現在庫</th><th>補充ライン</th><th>補充目安</th><th>欠品予測</th><th>発注数量</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
+  <div class="tablewrap"><table><thead><tr><th>商品</th><th>基準棚卸日 / 在庫</th><th>期間入庫</th><th>最新棚卸日 / 在庫</th><th>期間出庫数</th><th>期間日数</th><th>1日平均出庫数</th><th>現在庫</th><th>補充ライン</th><th>補充目安</th><th>欠品予測</th><th>発注目安（出庫数−最新在庫）</th><th>発注数量</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
  </div>
 </section>
 
@@ -245,7 +245,7 @@ function init(){
  loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings'){initSettingFilters();renderSettingProducts();}if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119'),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119',$('reportFrom').value,$('reportTo').value),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();initSettingFilters();renderSettingProducts();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -409,7 +409,7 @@ function renderDerivedOutflow(){
  $('derivedOutRows').innerHTML=rows.length?rows.map(x=>{
   const p=products.find(p=>p.id===x.productId)||{};
   if(x.status!=='calculated'){
-   return `<tr><td>${esc(x.name)}</td><td colspan="10">計算不可：${esc(x.reason||'棚卸履歴が不足しています')}</td><td>—</td></tr>`;
+   return `<tr><td>${esc(x.name)}</td><td colspan="11">計算不可：${esc(x.reason||'棚卸履歴が不足しています')}</td><td>—</td></tr>`;
   }
   const base=Number(x.baseStock)||0;
   const inbound=Number(x.inbound)||0;
@@ -421,6 +421,8 @@ function renderDerivedOutflow(){
   const line=Number(p.reorderPoint)||0;
   const replenish=(stock!==null&&daily!==0)?(stock-line)/daily:null;
   const stockout=(stock!==null&&daily!==0)?stock/daily:null;
+  // 発注目安＝期間出庫数－採用した最新棚卸在庫（例：462－57＝405）
+  const orderGuide=outflow-latest;
   const qtyClass=outflow<0?'outflow-negative':'';
   const dailyClass=daily<0?'outflow-negative':'';
   return `<tr>
@@ -435,15 +437,25 @@ function renderDerivedOutflow(){
    <td class="num">${line}</td>
    <td class="num">${replenish===null?'—':fmtDays(replenish)}</td>
    <td class="num">${stockout===null?'—':fmtDays(stockout)}</td>
+   <td class="num"><b>${orderGuide}</b></td>
    <td><div style="display:flex;gap:6px;min-width:180px"><input type="number" min="1" step="1" placeholder="数量" style="width:85px" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div></td>
   </tr>`;
- }).join():'<tr><td colspan="12">該当する商品がありません</td></tr>';
+ }).join():'<tr><td colspan="13">該当する商品がありません</td></tr>';
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
  busy(true,'棚卸差異を集計中…');
  try{
-  const r=await call('getReports',$('reportFrom').value,$('reportTo').value);
+  const from=$('reportFrom').value,to=$('reportTo').value;
+  const [r,periodData]=await Promise.all([
+   call('getReports',from,to),
+   call('getBootstrapForApp20261119',from,to)
+  ]);
+  // 商品一覧側の補充目安・欠品予測も、推定出庫レポートと同じ棚卸期間で計算する
+  if(periodData&&Array.isArray(periodData.products)){
+   products=periodData.products;
+   renderProducts();
+  }
   derivedOutflowCache=r.derivedOutflow||[];
   initDerivedReportFilters();
   renderDerivedOutflow();
