@@ -255,7 +255,7 @@ function renderProducts(){
  const q=$('productSearch').value.toLowerCase(),f=$('productFilter').value,maker=$('productMakerFilter')?.value||'';
  if($('productMakerFilter')){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));$('productMakerFilter').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('productMakerFilter').value=maker}
  const list=products.filter(p=>(!maker||p.supplier===maker)&&(!q||`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q))&&(!f||p.status===f));
- $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
+ $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':Math.floor(p.daysToReorder)+'日'}</td><td>${p.daysToStockout==null?'—':Math.floor(p.daysToStockout)+'日'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
 }
 function initInboundHistoryFilters(){
  const maker=$('inboundHistoryMaker');if(!maker)return;
@@ -405,7 +405,7 @@ function renderDerivedOutflow(){
   const p=products.find(p=>p.id===x.productId);
   return (!maker||(p&&p.supplier===maker))&&(!productName||(p&&p.name===productName));
  });
- const fmtDays=v=>Number.isFinite(v)?`${Math.round(v*10)/10}日`:'—';
+ const fmtDays=v=>Number.isFinite(v)?`${Math.floor(v)}日`:'—';
  $('derivedOutRows').innerHTML=rows.length?rows.map(x=>{
   const p=products.find(p=>p.id===x.productId)||{};
   if(x.status!=='calculated'){
