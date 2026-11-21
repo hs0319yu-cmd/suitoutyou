@@ -3,10 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#10243b">
-<link rel="manifest" href="./manifest.json">
-<link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <title>在庫・発注管理</title>
 <style>
 :root{--bg:#f4f7fb;--panel:#fff;--ink:#172235;--muted:#66758a;--line:#dfe6ef;--blue:#2563eb;--blue2:#eaf1ff;--green:#13845b;--red:#c24141;--amber:#a16207}
@@ -90,8 +86,8 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div class="field"><label>メーカー</label><select id="productMakerFilter" onchange="renderProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>状態</label><select id="productFilter"><option value="">すべて</option><option>要補充</option><option>在庫あり</option><option>未棚卸</option></select></div>
   <button class="btn secondary" onclick="loadAll()">更新</button>
  </div>
- <div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ</th><th>仕入先</th><th>現在庫</th><th>補充ライン</th><th>最新棚卸日</th><th>補充目安</th><th>欠品予測</th><th>状態</th></tr></thead><tbody id="productRows"></tbody></table></div>
- <p class="hint">現在庫は最新の実棚数量を基準に表示します。補充目安・欠品予測は直近90日間の登録出庫実績から計算します。</p>
+ <div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ</th><th>仕入先</th><th>現在庫</th><th>補充ライン</th><th>最新棚卸日</th><th>補充目安</th><th>欠品予測</th><th>欠品予測の採用棚卸期間</th><th>状態</th></tr></thead><tbody id="productRows"></tbody></table></div>
+ <p class="hint">現在庫は最新の実棚数量を基準に表示します。補充目安・欠品予測は、画面上部の「推定出庫」で指定した開始日・終了日に最も近い棚卸を採用して計算します。商品ごとに採用した棚卸期間も表示します。</p>
 </section>
 
 <section id="movement" class="page">
@@ -150,7 +146,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
    <div class="field"><label>商品</label><select id="derivedProduct" onchange="renderDerivedOutflow()"><option value="">すべての商品</option></select></div>
    <button class="btn" onclick="loadReports()">集計</button>
   </div>
-  <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を終了在庫として、基準在庫＋採用棚卸間の入庫－終了棚卸在庫で推定出庫を計算します。マイナス値もそのまま表示します。棚卸履歴が1回以下の商品は計算不可です。</p>
+  <p class="hint">開始日に最も近い棚卸を基準在庫、終了日に最も近い棚卸を終了在庫として、基準在庫＋採用棚卸間の入庫－終了棚卸在庫で推定出庫を計算します。マイナス値もそのまま表示します。棚卸履歴が1回以下の商品は計算不可です。商品一覧の欠品予測も、この指定期間に連動して更新されます。</p>
   <div class="tablewrap"><table><thead><tr><th>商品</th><th>推定出庫</th><th>発注の目安</th><th>発注数量</th><th>採用棚卸期間</th><th>判定</th></tr></thead><tbody id="derivedOutRows"></tbody></table></div>
  </div>
 </section>
@@ -227,14 +223,13 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 </section>
 </main>
 <footer>在庫管理システム / データは連携先Googleスプレッドシートに保存されます</footer>
-<script src="./api.js"></script>
 <script>
 let products=[],orders=[],settings={},backlogs=[],splitDraft=null,inboundHistory=[];
 const $=id=>document.getElementById(id);
 const money=(n,c)=>String(c||'JPY')==='USD'?'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP'); const yen=n=>money(n,'JPY');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
-function call(name,...args){return InventoryApi.call(name,...args)}
+function call(name,...args){return new Promise((resolve,reject)=>{const r=google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error(e.message||e)));r[name](...args)})}
 function busy(v,msg){$('loadState').textContent=v?(msg||'処理中…'):'オンライン'}
 function toast(msg){$('loadState').textContent=msg;setTimeout(()=>$('loadState').textContent='オンライン',3500)}
 function labelResponsiveTable(table){
@@ -262,7 +257,7 @@ function init(){
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119'),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119',$('reportFrom').value,$('reportTo').value),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProductOptions();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -272,7 +267,7 @@ function renderProducts(){
  const q=$('productSearch').value.toLowerCase(),f=$('productFilter').value,maker=$('productMakerFilter')?.value||'';
  if($('productMakerFilter')){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));$('productMakerFilter').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('productMakerFilter').value=maker}
  const list=products.filter(p=>(!maker||p.supplier===maker)&&(!q||`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q))&&(!f||p.status===f));
- $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
+ $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td>${p.derivedBaseDate&&p.derivedLatestDate?esc(p.derivedBaseDate)+' ～ '+esc(p.derivedLatestDate):'計算不可'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
 }
 function initInboundHistoryFilters(){
  const maker=$('inboundHistoryMaker');if(!maker)return;
@@ -425,17 +420,29 @@ function renderDerivedOutflow(){
  $('derivedOutRows').innerHTML=rows.length?rows.map(x=>x.status==='calculated'
   ?`<tr><td>${esc(x.name)}</td><td class="num ${Number(x.qty)<0?'outflow-negative':''}">${x.qty}</td><td class="num ${Number(x.qty)-Number(x.latestStock)<0?'outflow-negative':''}">${Number(x.qty)-Number(x.latestStock)}</td><td><div style="display:flex;gap:6px;min-width:180px"><input type="number" min="1" step="1" placeholder="数量" style="width:85px" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div></td><td>${x.baseDate} ～ ${x.latestDate}</td><td>計算済</td></tr>`
   :`<tr><td>${esc(x.name)}</td><td class="num">—</td><td>—</td><td>—</td><td>計算不可（${esc(x.reason)}）</td></tr>`).join()
-  :'<tr><td colspan="5">該当する商品がありません</td></tr>';
+  :'<tr><td colspan="6">該当する商品がありません</td></tr>';
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
- busy(true,'棚卸差異を集計中…');
+ const from=$('reportFrom').value, to=$('reportTo').value;
+ if(!from||!to)return alert('開始日と終了日を入力してください');
+ if(from>to)return alert('開始日は終了日以前の日付にしてください');
+ busy(true,'指定期間の棚卸差異・欠品予測を集計中…');
  try{
-  const r=await call('getReports',$('reportFrom').value,$('reportTo').value);
+  const [r,d]=await Promise.all([
+   call('getReports',from,to),
+   call('getBootstrapForApp20261119',from,to)
+  ]);
+  if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('指定期間の商品データを取得できません');
+  products=d.products;
+  orders=Array.isArray(d.orders)?d.orders:orders;
+  backlogs=Array.isArray(d.backlogs)?d.backlogs:backlogs;
+  settings=d.settings||settings;
   derivedOutflowCache=r.derivedOutflow||[];
+  renderAll();
   initDerivedReportFilters();
   renderDerivedOutflow();
-  toast('推定出庫の集計が完了しました');
+  toast('指定期間の推定出庫・欠品予測を更新しました');
  }catch(e){alert(e.message);busy(false)}
 }
 async function runAI(){busy(true,'Gemini分析中…');$('aiResult').textContent='指定期間の出庫傾向・現在庫・欠品リスクをAIが分析しています…';try{const r=await call('aiForecast',$('reportFrom').value,$('reportTo').value);$('aiResult').innerHTML=`<div class="hint">モデル：${esc(r.model)} / 対象期間：${esc(r.from)} ～ ${esc(r.to)} / リスク候補 ${r.candidateCount}商品</div><div style="white-space:pre-wrap;line-height:1.7;margin-top:8px">${esc(r.text)}</div>`;toast('AI分析完了')}catch(e){$('aiResult').textContent=e.message;busy(false)}}
