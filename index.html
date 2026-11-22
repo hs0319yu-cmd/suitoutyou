@@ -157,9 +157,9 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  <h1>棚卸差異から推定した出庫</h1>
  <div class="panel">
   <div class="row">
-   <div class="field"><label>開始日</label><input id="reportFrom" type="date"></div>
-   <div class="field"><label>終了日</label><input id="reportTo" type="date"></div>
-   <div class="field"><label>メーカー</label><select id="derivedMaker" onchange="renderDerivedMakerProducts()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>開始日（棚卸実施日）</label><select id="reportFrom"><option value="">棚卸日を読み込み中…</option></select></div>
+   <div class="field"><label>終了日（棚卸実施日）</label><select id="reportTo"><option value="">棚卸日を読み込み中…</option></select></div>
+   <div class="field"><label>メーカー</label><select id="derivedMaker" onchange="handleDerivedMakerChange()"><option value="">全メーカー</option></select></div>
    <div class="field"><label>商品</label><select id="derivedProduct" onchange="renderDerivedOutflow()"><option value="">すべての商品</option></select></div>
    <button class="btn" onclick="loadReports()">集計</button>
   </div>
@@ -321,9 +321,9 @@ function initResponsiveTables(){
  window.__responsiveTableObserver.observe(document.body,{childList:true,subtree:true});
 }
 function init(){
- ['moveDate','stockDate','orderDate','reportTo'].forEach(id=>$(id).value=today());
+ ['moveDate','stockDate','orderDate'].forEach(id=>$(id).value=today());
  $('stockDate').addEventListener('change',renderStockRows);
- $('reportFrom').value=new Date(Date.now()-365*86400000).toISOString().slice(0,10);
+ window.reportDefaultFrom=new Date(Date.now()-365*86400000).toISOString().slice(0,10);window.reportDefaultTo=today();
  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
  $('makerLinkAll').onchange=toggleMakerLinkAll;$('productSearch').oninput=renderProducts;$('productFilter').onchange=renderProducts;
  $('moveSearch').oninput=renderMoveProductNames;$('moveDate').addEventListener('change',renderMoveCards);$('stockSearch').oninput=renderStockRows;
@@ -332,7 +332,7 @@ function init(){
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119',$('reportFrom').value,$('reportTo').value),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+async function loadAll(){busy(true,'データ読込中…');try{const [d,h]=await Promise.all([call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today()),call('getInboundHistory')]);if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(h)?h:[];settings=d.settings||{};renderAll();initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProductOptions();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -467,7 +467,7 @@ function clearStockDraft(){
  const date=stockDraftKey();if(!confirm(`${date} の端末入力数をすべてクリアしますか？`))return;
  delete stockInputTotals[date];saveStockInputTotals();renderStockRows();toast('端末入力数をクリアしました');
 }
-let derivedOutflowCache=[];
+let derivedOutflowCache=[];let stocktakeDateOptions=[];let stocktakeDateLoading=false;
 function initDerivedReportFilters(){
  const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
  const makerEl=$('derivedMaker');
@@ -476,6 +476,48 @@ function initDerivedReportFilters(){
  makerEl.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
  makerEl.value=makers.includes(old)?old:'';
  renderDerivedMakerProducts();
+ loadStocktakeDateOptions(true);
+}
+async function handleDerivedMakerChange(){
+ renderDerivedMakerProducts();
+ await loadStocktakeDateOptions(false);
+}
+function nearestStocktakeDate(dates,target){
+ if(!dates.length)return '';
+ return dates.reduce((best,x)=>!best||Math.abs(new Date(x.date+'T00:00:00')-new Date(target+'T00:00:00'))<Math.abs(new Date(best.date+'T00:00:00')-new Date(target+'T00:00:00'))?x:best,null)?.date||'';
+}
+async function loadStocktakeDateOptions(initial){
+ const fromEl=$('reportFrom'),toEl=$('reportTo');
+ if(!fromEl||!toEl||stocktakeDateLoading)return;
+ stocktakeDateLoading=true;
+ const oldFrom=fromEl.value||window.reportDefaultFrom||'';
+ const oldTo=toEl.value||window.reportDefaultTo||today();
+ try{
+  const maker=$('derivedMaker')?.value||'';
+  const rows=await call('getStocktakeDatesBySupplier',maker);
+  stocktakeDateOptions=Array.isArray(rows)?rows:[];
+  const makeOptions=(selected,target)=>{
+   const valid=stocktakeDateOptions.some(x=>x.date===selected);
+   const chosen=valid?selected:nearestStocktakeDate(stocktakeDateOptions,target);
+   return '<option value="">棚卸日を選択</option>'+stocktakeDateOptions.map(x=>{
+    const d=String(x.date||'');
+    const label=d.replace(/-/g,'/')+(Number(x.items)>0?`（${Number(x.items).toLocaleString('ja-JP')}商品）`:'');
+    return `<option value="${esc(d)}"${d===chosen?' selected':''}>${esc(label)}</option>`;
+   }).join('');
+  };
+  fromEl.innerHTML=makeOptions(oldFrom,window.reportDefaultFrom||oldFrom);
+  toEl.innerHTML=makeOptions(oldTo,window.reportDefaultTo||oldTo);
+  fromEl.disabled=toEl.disabled=stocktakeDateOptions.length===0;
+  if(!stocktakeDateOptions.length){
+   fromEl.innerHTML=toEl.innerHTML='<option value="">該当する棚卸日がありません</option>';
+   toast(maker?'このメーカーの棚卸履歴がありません':'棚卸履歴がありません');
+  }
+ }catch(e){
+  fromEl.innerHTML=toEl.innerHTML='<option value="">棚卸日を取得できません</option>';
+  fromEl.disabled=toEl.disabled=true;
+  console.error('棚卸日取得エラー',e);
+  alert('棚卸日を取得できませんでした：'+e.message);
+ }finally{stocktakeDateLoading=false}
 }
 function renderDerivedMakerProducts(){
  const maker=$('derivedMaker')?.value||'';
