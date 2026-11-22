@@ -558,7 +558,7 @@ function getProductBacklogRemaining_(productId){
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
  const from=$('reportFrom').value, to=$('reportTo').value;
- if(!from||!to)return alert('開始日と終了日を入力してください');
+ if(!from||!to)return;
  if(from>to)return alert('開始日は終了日以前の日付にしてください');
  busy(true,'指定期間の棚卸差異・欠品予測を集計中…');
  try{
