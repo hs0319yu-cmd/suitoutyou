@@ -201,7 +201,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div class="field"><label>メーカー</label><select id="orderHistoryMaker" onchange="renderOrders()"><option value="">全メーカー</option></select></div>
   <div class="field"><label>商品・発注ID検索</label><input id="orderHistorySearch" placeholder="商品名・サイズ・発注ID・メーカー" oninput="renderOrders()"></div>
   <div class="field"><label>状態</label><select id="orderHistoryStatus" onchange="renderOrders()"><option value="">すべて</option><option>下書き</option><option>発注済</option><option>一部入荷</option><option>完了</option><option>取消</option></select></div>
- </div><div class="tablewrap"><table><thead><tr><th>発注ID</th><th>仕入先</th><th>発注日</th><th>納期</th><th>回</th><th>金額・通貨</th><th>状態</th><th>PDF</th><th>変更</th></tr></thead><tbody id="orderRows"></tbody></table></div></div>
+ </div><div class="tablewrap"><table><thead><tr><th>発注ID</th><th>仕入先</th><th>発注日</th><th>納期</th><th>回</th><th>金額・通貨</th><th>状態</th><th>PDF</th><th>状態変更</th><th>編集・削除</th></tr></thead><tbody id="orderRows"></tbody></table></div></div>
  <p class="hint">数量は整数のまま各回へ配分します。高単価の商品から金額の少ない回へ割り当て、合計金額は必ず元の発注合計と一致させます。各回の数量・単価・日付は保存前に調整できます。</p>
 </section>
 
@@ -701,7 +701,41 @@ function renderOrders(){
   const hay=`${o['発注ID']} ${o['仕入先']} ${lineText}`.toLowerCase();
   return(!maker||o['仕入先']===maker)&&(!status||o['状態']===status)&&(!q||hay.includes(q));
  });
- $('orderRows').innerHTML=list.map(o=>`<tr><td>${esc(o['発注ID'])}</td><td>${esc(o['仕入先'])}</td><td>${esc(o['発注日'])}</td><td>${esc(o['納期'])}</td><td>${o['分割回']}/${o['分割数']}</td><td class="num">${money(o['合計金額'],o['通貨']||'JPY')}</td><td><span class="pill">${esc(o['状態'])}</span></td><td><button class="btn small" type="button" onclick="downloadSavedOrderPdf('${esc(o['発注ID'])}')">PDF</button></td><td><select onchange="changeStatus('${esc(o['発注ID'])}',this.value)"><option value="">状態変更</option>${['下書き','発注済','一部入荷','完了','取消'].map(s=>`<option>${s}</option>`).join('')}</select></td></tr>`).join('')||'<tr><td colspan="9">該当する発注がありません</td></tr>';
+ $('orderRows').innerHTML=list.map(o=>{const editable=String(o['状態']||'')==='下書き';return `<tr><td>${esc(o['発注ID'])}</td><td>${esc(o['仕入先'])}</td><td>${esc(o['発注日'])}</td><td>${esc(o['納期'])}</td><td>${o['分割回']}/${o['分割数']}</td><td class="num">${money(o['合計金額'],o['通貨']||'JPY')}</td><td><span class="pill">${esc(o['状態'])}</span></td><td><button class="btn small" type="button" onclick="downloadSavedOrderPdf('${esc(o['発注ID'])}')">PDF</button></td><td><select onchange="changeStatus('${esc(o['発注ID'])}',this.value)"><option value="">状態変更</option>${['下書き','発注済','一部入荷','完了','取消'].map(s=>`<option>${s}</option>`).join('')}</select></td><td>${editable?`<button class="btn small secondary" type="button" onclick="editSavedOrder('${esc(o['発注ID'])}')">編集</button> <button class="btn small warn" type="button" onclick="deleteSavedOrder('${esc(o['発注ID'])}')">削除</button>`:'—'}</td></tr>`}).join('')||'<tr><td colspan="10">該当する発注がありません</td></tr>';
+}
+async function editSavedOrder(id){
+ const o=(orders||[]).find(x=>String(x['発注ID']||'')===String(id));
+ if(!o)return alert('発注データが見つかりません。一覧を更新してください。');
+ if(String(o['状態']||'')!=='下書き')return alert('編集できるのは「下書き」の発注だけです。');
+ const supplier=prompt('メーカー・仕入先',String(o['仕入先']||''));if(supplier===null)return;if(!supplier.trim())return alert('メーカーを入力してください。');
+ const orderDate=prompt('発注日（YYYY-MM-DD）',String(o['発注日']||''));if(orderDate===null)return;
+ const deliveryDate=prompt('納期（YYYY-MM-DD・未定なら空欄）',String(o['納期']||''));if(deliveryDate===null)return;
+ const note=prompt('備考（空欄可）',String(o['備考']||''));if(note===null)return;
+ const lines=[];
+ for(let i=0;i<(o.lines||[]).length;i++){
+  const l=o.lines[i],label=`${l['商品名']||''} / ${l['サイズ']||''}`;
+  const qtyText=prompt(`${label}
+数量（0にするとこの明細を削除）`,String(l['数量']||0));if(qtyText===null)return;
+  const qty=Number(qtyText);if(!Number.isFinite(qty)||qty<0||!Number.isInteger(qty))return alert('数量は0以上の整数で入力してください。');
+  if(qty===0)continue;
+  const priceText=prompt(`${label}
+単価`,String(l['単価']||0));if(priceText===null)return;
+  const unitPrice=Number(priceText);if(!Number.isFinite(unitPrice)||unitPrice<0)return alert('単価は0以上の数値で入力してください。');
+  lines.push({productId:l['商品ID']||'',name:l['商品名']||'',size:l['サイズ']||'',qty,unitPrice,currency:l['通貨']||'JPY'});
+ }
+ if(!lines.length)return alert('明細が1件以上必要です。');
+ if(!confirm('この内容で発注を更新しますか？'))return;
+ busy(true,'発注を更新中…');
+ try{orders=await call('updateOrder',id,{supplier:supplier.trim(),orderDate,deliveryDate,note,lines});backlogs=await call('getOrderBacklogs');renderBacklogs();renderOrders();toast('発注を更新しました。PDFにも反映されています。')}
+ catch(e){alert(e.message);busy(false)}
+}
+async function deleteSavedOrder(id){
+ const o=(orders||[]).find(x=>String(x['発注ID']||'')===String(id));if(!o)return alert('発注データが見つかりません。');
+ if(String(o['状態']||'')!=='下書き')return alert('削除できるのは「下書き」の発注だけです。');
+ if(!confirm(`発注ID：${id} を削除します。
+明細も削除され、単独発注の場合は受注残も差し戻します。
+この操作は取り消せません。よろしいですか？`))return;
+ busy(true,'発注を削除中…');try{orders=await call('deleteOrder',id);backlogs=await call('getOrderBacklogs');renderBacklogs();renderOrders();toast('発注を削除しました')}catch(e){alert(e.message);busy(false)}
 }
 async function changeStatus(id,status){if(!status)return;try{orders=await call('updateOrderStatus',id,status);renderOrders();toast('状態を更新しました')}catch(e){alert(e.message)}}
 function renderMakerLinkRows(){
