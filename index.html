@@ -402,17 +402,29 @@ function adjustMoveCount(id,mode){
 }
 function moveEnterAdd(e,id){if(e.key==='Enter'){e.preventDefault();adjustMoveCount(id,1)}}
 async function commitMovements(){
- const draft=getMoveDraft(),ids=Object.keys(draft).filter(id=>Number(draft[id]?.qty)>0);if(!ids.length)return alert('端末入力数がありません');
+ const draft=getMoveDraft(),ids=Object.keys(draft).filter(id=>Number(draft[id]?.qty)>0);
+ if(!ids.length)return alert('端末入力数がありません');
  const date=$('moveDate').value||today(),type=$('moveType').value;
- if(!confirm(`${date} の ${ids.length}商品・合計${ids.reduce((s,id)=>s+Number(draft[id].qty||0),0)}点を${type}として登録します。よろしいですか？`))return;
- busy(true,'入出庫を一括登録中…');let done=0;
+ const total=ids.reduce((s,id)=>s+Number(draft[id].qty||0),0);
+ if(!confirm(`${date} の ${ids.length}商品・合計${total}点を${type}として登録します。よろしいですか？`))return;
+ busy(true,'入出庫を一括登録中…');
  try{
-  for(const id of ids){const item=draft[id],p=products.find(x=>x.id===id);if(!p)continue;
-   const data={type,date,productId:id,qty:item.qty,unitPrice:item.price??p.unitPrice,currency:item.currency??p.currency??'JPY',reference:$('moveRef').value,note:$('moveNote').value};
-   const r=await call('saveMovement',data);products=r.products;done++;delete draft[id];saveMoveInputTotals();
-  }
-  backlogs=await call('getOrderBacklogs');renderAll();$('moveRef').value='';$('moveNote').value='';toast(`${done}商品を${type}登録しました`);
- }catch(e){renderMoveCards();alert(`${done}商品は登録済みです。残りは端末に保持しています。\n${e.message}`);busy(false)}
+  const items=ids.map(id=>{
+   const item=draft[id],p=products.find(x=>x.id===id);
+   if(!p)throw new Error(`商品マスタに見つからない商品があります（${id}）。入力は保持しています。`);
+   return {productId:id,qty:Number(item.qty),unitPrice:item.price??p.unitPrice,currency:item.currency??p.currency??'JPY'};
+  });
+  const r=await call('saveMovementsBatch',{type,date,items,reference:$('moveRef').value,note:$('moveNote').value});
+  if(!r||!Array.isArray(r.products))throw new Error('一括登録後の商品データを取得できませんでした');
+  products=r.products;
+  backlogs=Array.isArray(r.backlogs)?r.backlogs:backlogs;
+  ids.forEach(id=>delete draft[id]);saveMoveInputTotals();renderAll();
+  $('moveRef').value='';$('moveNote').value='';
+  toast(`${ids.length}商品・合計${total}点を${type}登録しました`);
+ }catch(e){
+  renderMoveCards();alert(`一括登録できませんでした。入力データは端末に保持しています。
+${e.message}`);busy(false);
+ }
 }
 function clearMoveDraft(){const key=moveDraftKey();if(!confirm('この日付・区分の端末入力数をすべてクリアしますか？'))return;delete moveInputTotals[key];saveMoveInputTotals();renderMoveCards();toast('端末入力数をクリアしました')}
 function renderSupplierSelectors(){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort();['orderSupplier','stockSupplier','moveMaker'].forEach(id=>{const el=$(id),old=el.value;el.innerHTML='<option value="">メーカーを選択</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__UNASSIGNED__">メーカー未設定（仕入先未登録商品）</option>';if(makers.includes(old)||old==='__UNASSIGNED__')el.value=old;});}
