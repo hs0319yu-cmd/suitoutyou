@@ -609,11 +609,13 @@ function renderDerivedOutflow(){
   :'<div class="derived-empty">該当する商品がありません</div>';
 }
 
-// 発注管理の受注残一覧と同じ backlogs 配列を、商品名・サイズ・メーカーで照合する。
-// 受注残一覧の行に価格表記が付いている場合も、末尾の価格だけ除いて一致させる。
+// 商品カードの受注残は、商品IDがある行はIDで優先照合する。
+// 未紐づけ行（productIdなし）のみ、商品名・サイズ・メーカーで補助照合する。
+// 価格表記や全角・半角、空白の違いは補助照合時に正規化する。
 function getProductBacklogRemaining_(productId){
- const product=(products||[]).find(p=>String(p.id||'')===String(productId||''));
- if(!product)return 0;
+ const id=String(productId||'');
+ const product=(products||[]).find(p=>String(p.id||'')===id);
+ if(!product||!id)return 0;
 
  const normalizeName=value=>String(value??'')
   .normalize('NFKC')
@@ -622,21 +624,23 @@ function getProductBacklogRemaining_(productId){
   .trim()
   .toLowerCase();
  const normalizeSize=value=>normalizeName(value||'標準');
-
  const targetName=normalizeName(product.name);
  const targetSize=normalizeSize(product.size);
  const targetMaker=String(product.supplier||'').trim();
  if(!targetName)return 0;
 
  return (backlogs||[]).reduce((sum,row)=>{
-  // 受注残一覧と同じ name / size を基準にし、メーカーが分かる場合は同一メーカーに限定。
-  if(normalizeName(row.name)!==targetName)return sum;
-  if(normalizeSize(row.size)!==targetSize)return sum;
-
-  const linkedProduct=(products||[]).find(p=>String(p.id||'')===String(row.productId||''));
-  const rowMaker=String(row.supplier||linkedProduct?.supplier||'').trim();
-  if(targetMaker && rowMaker && rowMaker!==targetMaker)return sum;
-
+  const rowProductId=String(row.productId||'');
+  if(rowProductId){
+   // 商品IDが登録されている受注残は、IDが一致する商品にだけ加算する。
+   if(rowProductId!==id)return sum;
+  }else{
+   // 商品未紐づけの受注残だけ、商品名・サイズ・メーカーで照合する。
+   if(normalizeName(row.name)!==targetName)return sum;
+   if(normalizeSize(row.size)!==targetSize)return sum;
+   const rowMaker=String(row.supplier||'').trim();
+   if(targetMaker && rowMaker && rowMaker!==targetMaker)return sum;
+  }
   return sum+Math.max(0,Number(row.remaining)||0);
  },0);
 }
