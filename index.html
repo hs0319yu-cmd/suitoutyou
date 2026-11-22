@@ -609,31 +609,35 @@ function renderDerivedOutflow(){
   :'<div class="derived-empty">該当する商品がありません</div>';
 }
 
-// 発注管理の「受注残一覧」と同じ backlogs データを、商品名＋サイズ単位で参照する。
-// 商品IDだけで照合すると、サイズ違いが同じIDに紐づく場合に混在するため使わない。
-// 同一バリエーションの複数行は、発注管理一覧に表示される数量どおり合算する。
+// 発注管理の受注残一覧と同じ backlogs 配列を、商品名・サイズ・メーカーで照合する。
+// 受注残一覧の行に価格表記が付いている場合も、末尾の価格だけ除いて一致させる。
 function getProductBacklogRemaining_(productId){
  const product=(products||[]).find(p=>String(p.id||'')===String(productId||''));
  if(!product)return 0;
- const norm=v=>String(v??'').normalize('NFKC')
-  .replace(/[￥¥$＄\\\\][\\s\\d,\\.]+.*$/,'')
-  .replace(/[\\s\\u3000]+/g,'').trim().toLowerCase();
- const name=norm(product.name);
- const size=norm(product.size||'標準');
- if(!name)return 0;
 
- return (backlogs||[]).reduce((sum,b)=>{
-  if(norm(b.name)!==name)return sum;
-  if(norm(b.size||'標準')!==size)return sum;
+ const normalizeName=value=>String(value??'')
+  .normalize('NFKC')
+  .replace(/\s*(?:[$＄¥￥]\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*円)\s*$/u,'')
+  .replace(/[\s\u3000]+/g,'')
+  .trim()
+  .toLowerCase();
+ const normalizeSize=value=>normalizeName(value||'標準');
 
-  // 受注残行に商品IDがあり、そのIDからメーカーが特定できる場合は
-  // 別メーカーの同名・同サイズ商品を除外する。
-  if(b.productId){
-   const linked=(products||[]).find(p=>String(p.id||'')===String(b.productId));
-   if(linked && product.supplier && linked.supplier &&
-      String(linked.supplier).trim()!==String(product.supplier).trim()) return sum;
-  }
-  return sum+Math.max(0,Number(b.remaining)||0);
+ const targetName=normalizeName(product.name);
+ const targetSize=normalizeSize(product.size);
+ const targetMaker=String(product.supplier||'').trim();
+ if(!targetName)return 0;
+
+ return (backlogs||[]).reduce((sum,row)=>{
+  // 受注残一覧と同じ name / size を基準にし、メーカーが分かる場合は同一メーカーに限定。
+  if(normalizeName(row.name)!==targetName)return sum;
+  if(normalizeSize(row.size)!==targetSize)return sum;
+
+  const linkedProduct=(products||[]).find(p=>String(p.id||'')===String(row.productId||''));
+  const rowMaker=String(row.supplier||linkedProduct?.supplier||'').trim();
+  if(targetMaker && rowMaker && rowMaker!==targetMaker)return sum;
+
+  return sum+Math.max(0,Number(row.remaining)||0);
  },0);
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
