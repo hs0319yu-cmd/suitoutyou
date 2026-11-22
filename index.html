@@ -245,7 +245,6 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 <footer>在庫管理システム / データは連携先Googleスプレッドシートに保存されます</footer>
 <script>
 let products=[],orders=[],settings={},backlogs=[],backlogTotalsByProductId={},splitDraft=null,inboundHistory=[];
- let productById=Object.create(null);
 const $=id=>document.getElementById(id);
 const money=(n,c)=>String(c||'JPY')==='USD'?'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP'); const yen=n=>money(n,'JPY');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -336,39 +335,7 @@ function init(){
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){
-  busy(true,'データ読込中…');
-  let quickBacklogLoaded=false;
-  // 受注残一覧は商品・発注履歴の重い初期読込を待たず、先に単独取得して表示する。
-  const quickBacklogPromise=call('getOrderBacklogs').then(rows=>{
-    if(Array.isArray(rows)){
-      backlogs=rows;
-      quickBacklogLoaded=true;
-      renderBacklogFiltersAndRows_();
-    }
-  }).catch(err=>console.warn('受注残の先行読込に失敗:',err));
-  try{
-    const d=await call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today());
-    if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');
-    products=d.products;
-    productById=Object.create(null);
-    products.forEach(p=>{productById[String(p.id||'')]=p;});
-    orders=Array.isArray(d.orders)?d.orders:[];
-    if(!quickBacklogLoaded)backlogs=Array.isArray(d.backlogs)?d.backlogs:[];
-    backlogTotalsByProductId=d.backlogTotalsByProductId||{};
-    inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];
-    settings=d.settings||{};
-    renderAll();
-    // 先行取得がまだ返っていなければ、完了後に最新一覧へ差し替える。
-    await quickBacklogPromise;
-    if(quickBacklogLoaded)renderBacklogFiltersAndRows_();
-    initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました');
-  }catch(e){alert(e.message);busy(false)}
-}
-function renderBacklogFiltersAndRows_(){
-  initBacklogFilters();
-  renderBacklogs();
-}
+async function loadAll(){busy(true,'データ読込中…');try{const d=await call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today());if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];backlogTotalsByProductId=d.backlogTotalsByProductId||{};inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];settings=d.settings||{};renderAll();initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProductOptions();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -702,26 +669,26 @@ function downloadSavedOrderPdf(orderId){const o=(orders||[]).find(x=>String(x['�
 async function makeSplit(){const lines=getOrderLines();if(!lines.length)return alert('発注明細を入力してください');busy(true,'金額均等配分中…');try{splitDraft=await call('createSplitPlan',{count:$('splitCount').value,lines});renderSplit(splitDraft);toast('分割案を作成しました')}catch(e){alert(e.message);busy(false)}}
 function renderSplit(plan){$('splitResult').innerHTML=`<h2 style="margin-top:20px">分割案（保存前に数量を調整できます）</h2><p class="hint">元合計 ${money(plan.originalTotal,plan.currency)} / 分割合計 ${money(plan.distributedTotal,plan.currency)} / 各回差額幅 ${money(plan.spread,plan.currency)}</p>`+plan.batches.map(b=>`<div class="splitbatch" data-batch="${b.index}"><div class="row"><b>${b.index}回目</b><strong class="batch-total">${money(b.total,plan.currency)}</strong><div class="field"><label>発注日</label><input class="batch-order-date" type="date" value="${$('orderDate').value||today()}"></div><div class="field"><label>納期</label><input class="batch-delivery-date" type="date" value="${$('deliveryDate').value||''}"></div></div>${b.lines.map(l=>`<div class="splitline" data-line="${l.lineIndex}"><span>${esc(l.name)} ${esc(l.size)}</span><input class="batch-qty" type="number" min="0" step="1" value="${l.qty}" data-price="${l.unitPrice}" data-currency="${l.currency||'JPY'}" data-name="${esc(l.name)}" data-size="${esc(l.size)}" data-pid="${l.productId}"><span>${money(l.amount,l.currency||plan.currency)}</span></div>`).join('')}</div>`).join('')+`<div class="row"><strong id="splitGrand">分割合計：${money(plan.distributedTotal,plan.currency)}</strong><button class="btn green" onclick="saveSplit()">この分割内容で保存</button></div>`;document.querySelectorAll('.batch-qty').forEach(x=>x.oninput=calcSplitManual)}
 function calcSplitManual(){let total=0;document.querySelectorAll('.splitbatch').forEach(b=>{let n=0;b.querySelectorAll('.batch-qty').forEach(x=>n+=(Number(x.value)||0)*(Number(x.dataset.price)||0));b.querySelector('.batch-total').textContent=money(n,b.querySelector('.batch-qty')?.dataset.currency||'JPY');total+=n});$('splitGrand').textContent='分割合計：'+money(total,document.querySelector('.batch-qty')?.dataset.currency||'JPY')}
-async function saveSplit(){const batches=[...document.querySelectorAll('.splitbatch')].map((b,i)=>({lines:[...b.querySelectorAll('.splitline')].map(l=>{const x=l.querySelector('.batch-qty');return {lineIndex:Number(l.dataset.line),productId:x.dataset.pid,name:x.dataset.name,size:x.dataset.size,qty:Number(x.value)||0,unitPrice:Number(x.dataset.price)||0,currency:x.dataset.currency||'JPY',amount:(Number(x.value)||0)*(Number(x.dataset.price)||0)}}).filter(x=>x.qty>0)}));const total=batches.reduce((s,b)=>s+b.lines.reduce((a,x)=>a+x.amount,0),0);if(total!==splitDraft.originalTotal)return alert('分割金額が元の発注合計と一致しません。数量を調整してください。');const dates=[...document.querySelectorAll('.splitbatch')];busy(true,'分割発注保存中…');try{orders=await call('saveSplitPlan',{supplier:$('orderSupplier').value,note:$('orderNote').value,plan:{count:batches.length,distributedTotal:total,batches},orderDates:dates.map(x=>x.querySelector('.batch-order-date').value),deliveryDates:dates.map(x=>x.querySelector('.batch-delivery-date').value)});renderOrders();toast('分割発注を保存しました')}catch(e){alert(e.message);busy(false)}}
+async function saveSplit(){const batches=[...document.querySelectorAll('.splitbatch')].map((b,i)=>({lines:[...b.querySelectorAll('.splitline')].map(l=>{const x=l.querySelector('.batch-qty');return {lineIndex:Number(l.dataset.line),productId:x.dataset.pid,name:x.dataset.name,size:x.dataset.size,qty:Number(x.value)||0,unitPrice:Number(x.dataset.price)||0,currency:x.dataset.currency||'JPY',amount:(Number(x.value)||0)*(Number(x.dataset.price)||0)}}).filter(x=>x.qty>0)}));const total=batches.reduce((s,b)=>s+b.lines.reduce((a,x)=>a+x.amount,0),0);if(total!==splitDraft.originalTotal)return alert('分割金額が元の発注合計と一致しません。数量を調整してください。');const dates=[...document.querySelectorAll('.splitbatch')];busy(true,'分割発注保存中…');try{orders=await call('saveSplitPlan',{supplier:$('orderSupplier').value,note:$('orderNote').value,plan:{count:batches.length,distributedTotal:total,batches},orderDates:dates.map(x=>x.querySelector('.batch-order-date').value),deliveryDates:dates.map(x=>x.querySelector('.batch-delivery-date').value)});backlogs=await call('getOrderBacklogs');initBacklogFilters();renderBacklogs();renderOrders();toast('分割発注を保存しました')}catch(e){alert(e.message);busy(false)}}
 function initBacklogFilters(){
  const el=$('backlogMaker');if(!el)return;const old=el.value;
- const makers=[...new Set((backlogs||[]).map(x=>x.supplier||productById[String(x.productId||'')]?.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const makers=[...new Set((backlogs||[]).map(x=>x.supplier||products.find(p=>p.id===x.productId)?.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
  el.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');el.value=makers.includes(old)?old:'';renderBacklogProducts();
 }
 function renderBacklogProducts(){
  const maker=$('backlogMaker')?.value||'',el=$('backlogProduct');if(!el)return;const old=el.value;
- const names=[...new Set((backlogs||[]).filter(x=>{const p=productById[String(x.productId||'')];return !maker||(x.supplier||p?.supplier)===maker}).map(x=>x.name))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const names=[...new Set((backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId);return !maker||(x.supplier||p?.supplier)===maker}).map(x=>x.name))].sort((a,b)=>a.localeCompare(b,'ja'));
  el.innerHTML='<option value="">すべての商品</option>'+names.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');el.value=names.includes(old)?old:'';renderBacklogVariants();
 }
 function renderBacklogVariants(){
  const maker=$('backlogMaker')?.value||'',name=$('backlogProduct')?.value||'',el=$('backlogVariant');if(!el)return;const old=el.value;
- const vals=[...new Set((backlogs||[]).filter(x=>{const p=productById[String(x.productId||'')];return (!maker||(x.supplier||p?.supplier)===maker)&&(!name||x.name===name)}).map(x=>x.size||'標準'))].sort((a,b)=>a.localeCompare(b,'ja'));
+ const vals=[...new Set((backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId);return (!maker||(x.supplier||p?.supplier)===maker)&&(!name||x.name===name)}).map(x=>x.size||'標準'))].sort((a,b)=>a.localeCompare(b,'ja'));
  el.innerHTML='<option value="">すべて</option>'+vals.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=vals.includes(old)?old:'';renderBacklogs();
 }
 function renderBacklogs(){
  const maker=$('backlogMaker')?.value||'',name=$('backlogProduct')?.value||'',variant=$('backlogVariant')?.value||'',f=$('backlogFilter')?.value||'all';
  const total=backlogs.reduce((s,x)=>s+(Number(x.remaining)||0),0);if($('backlogTotal'))$('backlogTotal').textContent='現在の受注残合計：'+total.toLocaleString('ja-JP');
- const list=(backlogs||[]).filter(x=>{const p=productById[String(x.productId||'')],m=x.supplier||p?.supplier;return (!maker||m===maker)&&(!name||x.name===name)&&(!variant||(x.size||'標準')===variant)&&(f==='all'||(f==='remaining'&&Number(x.remaining)>0)||(f==='unmapped'&&!x.productId));});
+ const list=(backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId),m=x.supplier||p?.supplier;return (!maker||m===maker)&&(!name||x.name===name)&&(!variant||(x.size||'標準')===variant)&&(f==='all'||(f==='remaining'&&Number(x.remaining)>0)||(f==='unmapped'&&!x.productId));});
  $('backlogRows').innerHTML=list.map(x=>`<tr><td>${esc(x.name)}</td><td class="size">${esc(x.size)}</td><td class="num"><b>${Number(x.remaining||0).toLocaleString('ja-JP')}</b></td><td>${esc(x.source)}</td><td>${x.productId?'<span class="pill green">紐づけ済</span>':'<span class="pill red">未紐づけ</span>'}</td></tr>`).join('')||'<tr><td colspan="5">該当する受注残がありません</td></tr>';
 }
 
