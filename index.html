@@ -241,7 +241,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 </main>
 <footer>在庫管理システム / データは連携先Googleスプレッドシートに保存されます</footer>
 <script>
-let products=[],orders=[],settings={},backlogs=[],splitDraft=null,inboundHistory=[];
+let products=[],orders=[],settings={},backlogs=[],backlogTotalsByProductId={},splitDraft=null,inboundHistory=[];
 const $=id=>document.getElementById(id);
 const money=(n,c)=>String(c||'JPY')==='USD'?'$'+Number(n||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'¥'+Math.round(Number(n)||0).toLocaleString('ja-JP'); const yen=n=>money(n,'JPY');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -332,7 +332,7 @@ function init(){
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){busy(true,'データ読込中…');try{const d=await call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today());if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];settings=d.settings||{};renderAll();initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+async function loadAll(){busy(true,'データ読込中…');try{const d=await call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today());if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];backlogTotalsByProductId=d.backlogTotalsByProductId||{};inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];settings=d.settings||{};renderAll();initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProductOptions();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -613,36 +613,8 @@ function renderDerivedOutflow(){
 // 未紐づけ行（productIdなし）のみ、商品名・サイズ・メーカーで補助照合する。
 // 価格表記や全角・半角、空白の違いは補助照合時に正規化する。
 function getProductBacklogRemaining_(productId){
- const id=String(productId||'');
- const product=(products||[]).find(p=>String(p.id||'')===id);
- if(!product||!id)return 0;
-
- const normalizeName=value=>String(value??'')
-  .normalize('NFKC')
-  .replace(/\s*(?:[$＄¥￥]\s*[\d,]+(?:\.\d+)?|[\d,]+(?:\.\d+)?\s*円)\s*$/u,'')
-  .replace(/[\s\u3000]+/g,'')
-  .trim()
-  .toLowerCase();
- const normalizeSize=value=>normalizeName(value||'標準');
- const targetName=normalizeName(product.name);
- const targetSize=normalizeSize(product.size);
- const targetMaker=String(product.supplier||'').trim();
- if(!targetName)return 0;
-
- return (backlogs||[]).reduce((sum,row)=>{
-  const rowProductId=String(row.productId||'');
-  if(rowProductId){
-   // 商品IDが登録されている受注残は、IDが一致する商品にだけ加算する。
-   if(rowProductId!==id)return sum;
-  }else{
-   // 商品未紐づけの受注残だけ、商品名・サイズ・メーカーで照合する。
-   if(normalizeName(row.name)!==targetName)return sum;
-   if(normalizeSize(row.size)!==targetSize)return sum;
-   const rowMaker=String(row.supplier||'').trim();
-   if(targetMaker && rowMaker && rowMaker!==targetMaker)return sum;
-  }
-  return sum+Math.max(0,Number(row.remaining)||0);
- },0);
+  // 受注残の合算はGAS側で完了済み。画面側は商品IDの完成値を読むだけ。
+  return Math.max(0,Number(backlogTotalsByProductId[String(productId||'')])||0);
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
@@ -659,6 +631,7 @@ async function loadReports(){
   products=d.products;
   orders=Array.isArray(d.orders)?d.orders:orders;
   backlogs=Array.isArray(d.backlogs)?d.backlogs:backlogs;
+  backlogTotalsByProductId=d.backlogTotalsByProductId||backlogTotalsByProductId;
   settings=d.settings||settings;
   derivedOutflowCache=r.derivedOutflow||[];
   renderAll();
