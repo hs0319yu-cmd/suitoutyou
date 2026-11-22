@@ -79,7 +79,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 </style>
 </head>
 <body>
-<header>
+<header id="pageHeader">
  <div class="head"><div><div class="brand">在庫・発注管理</div><div class="sub">部分棚卸対応 / 入出庫履歴 / 需要予測 / 分割発注</div></div><div id="loadState" class="sub">読み込み中…</div></div>
  <nav id="nav">
   <button class="active" data-page="dashboard">ダッシュボード</button><button data-page="products">商品・在庫</button><button data-page="makerlink">メーカー紐づけ</button><button data-page="movement">入出庫登録</button><button data-page="stocktake">部分棚卸</button><button data-page="reports">推定出庫</button><button data-page="orders">発注管理</button><button data-page="settings">設定</button>
@@ -125,7 +125,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div id="moveRows" class="stock-card-list"></div>
  </div>
  <div class="panel" id="movementHistoryPanel" style="margin-top:14px">
-  <h2>入庫・出庫履歴一覧</h2>
+  <div class="row" style="align-items:center;justify-content:space-between;gap:10px"><h2 style="margin:0">入庫・出庫履歴一覧</h2><button class="btn secondary" type="button" onclick="goToPageHeader()">ヘッダーに戻る</button></div>
   <p class="hint">メーカーを選ぶと、そのメーカーの履歴日だけを日付リストに表示します。メーカー未選択なら全メーカーの日付から選べます。商品・バリエーション・入庫／出庫でも絞り込めます。</p>
   <div class="toolbar">
    <div class="field"><label>メーカー</label><select id="inboundHistoryMaker" onchange="renderInboundHistoryProducts();renderInboundHistoryDates();renderInboundHistory()"><option value="">全メーカー</option></select></div>
@@ -441,7 +441,8 @@ ${e.message}`);busy(false);
  }
 }
 function clearMoveDraft(){const key=moveDraftKey();if(!confirm('この日付・区分の端末入力数をすべてクリアしますか？'))return;delete moveInputTotals[key];saveMoveInputTotals();renderMoveCards();toast('端末入力数をクリアしました')}
-function goToMovementHistory(){const panel=$('movementHistoryPanel');if(!panel)return;panel.scrollIntoView({behavior:'smooth',block:'start'});}
+function goToMovementHistory(){const panel=$('movementHistoryPanel');if(!panel)return;const header=$('pageHeader');const offset=header?header.offsetHeight:0;window.scrollTo(0,Math.max(0,panel.getBoundingClientRect().top+window.scrollY-offset));}
+function goToPageHeader(){window.scrollTo(0,0);}
 function renderSupplierSelectors(){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort();['orderSupplier','stockSupplier','moveMaker'].forEach(id=>{const el=$(id),old=el.value;el.innerHTML='<option value="">メーカーを選択</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__UNASSIGNED__">メーカー未設定（仕入先未登録商品）</option>';if(makers.includes(old)||old==='__UNASSIGNED__')el.value=old;});}
 function normProductName(v){return String(v||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()}
 function sameProductName(a,b){return normProductName(a)===normProductName(b)}
