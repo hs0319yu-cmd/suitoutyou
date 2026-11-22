@@ -119,12 +119,12 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
    <div class="field"><label>対象商品検索</label><input id="moveSearch" placeholder="商品名・サイズ"></div>
   </div>
   <p class="hint">部分棚卸と同じカード形式で数量を入力できます。数量欄に入力してEnter、または＋／－で今回の入力数に加算し、最後にまとめて登録します。</p>
-  <div class="row" style="align-items:center;margin:10px 0"><strong id="movePendingSummary">未登録：0商品 / 0点</strong><button class="btn green" onclick="commitMovements()">入力分をまとめて登録</button><button class="btn secondary" onclick="clearMoveDraft()">端末入力をクリア</button></div>
+  <div class="row" style="align-items:center;margin:10px 0"><strong id="movePendingSummary">未登録：0商品 / 0点</strong><button class="btn green" onclick="commitMovements()">入力分をまとめて登録</button><button class="btn secondary" onclick="clearMoveDraft()">端末入力をクリア</button><button class="btn secondary" type="button" onclick="goToMovementHistory()">入出庫一覧へ</button></div>
   <div class="field" style="max-width:320px;margin-bottom:10px"><label>伝票番号・参照</label><input id="moveRef"></div>
   <div class="field" style="margin-bottom:10px"><label>備考</label><input id="moveNote"></div>
   <div id="moveRows" class="stock-card-list"></div>
  </div>
- <div class="panel" style="margin-top:14px">
+ <div class="panel" id="movementHistoryPanel" style="margin-top:14px">
   <h2>入庫・出庫履歴一覧</h2>
   <p class="hint">メーカーを選ぶと、そのメーカーの履歴日だけを日付リストに表示します。メーカー未選択なら全メーカーの日付から選べます。商品・バリエーション・入庫／出庫でも絞り込めます。</p>
   <div class="toolbar">
@@ -441,6 +441,7 @@ ${e.message}`);busy(false);
  }
 }
 function clearMoveDraft(){const key=moveDraftKey();if(!confirm('この日付・区分の端末入力数をすべてクリアしますか？'))return;delete moveInputTotals[key];saveMoveInputTotals();renderMoveCards();toast('端末入力数をクリアしました')}
+function goToMovementHistory(){const panel=$('movementHistoryPanel');if(!panel)return;panel.scrollIntoView({behavior:'smooth',block:'start'});}
 function renderSupplierSelectors(){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort();['orderSupplier','stockSupplier','moveMaker'].forEach(id=>{const el=$(id),old=el.value;el.innerHTML='<option value="">メーカーを選択</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')+'<option value="__UNASSIGNED__">メーカー未設定（仕入先未登録商品）</option>';if(makers.includes(old)||old==='__UNASSIGNED__')el.value=old;});}
 function normProductName(v){return String(v||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()}
 function sameProductName(a,b){return normProductName(a)===normProductName(b)}
