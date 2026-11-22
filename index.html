@@ -31,7 +31,7 @@ textarea{min-height:76px}button{cursor:pointer;font:inherit}
 .derived-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:10px;border-bottom:1px solid #edf1f5}
 .derived-card-name{font-size:15px;font-weight:850;line-height:1.45;overflow-wrap:anywhere}
 .derived-status{flex:0 0 auto;font-size:11px;font-weight:800;color:#13734f;background:#e4f6ed;border-radius:99px;padding:4px 8px}
-.derived-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:12px 0}
+.derived-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
 .derived-metric{min-width:0;background:#f5f7fb;border-radius:9px;padding:9px 8px;text-align:center}
 .derived-metric-label{display:block;color:var(--muted);font-size:11px;font-weight:750;line-height:1.35;min-height:30px}
 .derived-metric-value{display:block;font-size:21px;font-weight:900;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;margin-top:3px}
@@ -71,7 +71,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  .tablewrap tbody td:last-child{border-bottom:0}.tablewrap tbody td::before{content:attr(data-label);flex:0 0 38%;max-width:38%;text-align:left;color:var(--muted);font-size:11px;font-weight:800;overflow-wrap:anywhere}
  .tablewrap tbody td[colspan]::before{display:none}.tablewrap tbody td input,.tablewrap tbody td select{width:62%!important;min-width:0;max-width:62%;padding:8px 7px;font-size:13px;min-height:38px}
  .tablewrap tbody td button{max-width:100%;white-space:normal}.tablewrap tbody td>div{max-width:62%;min-width:0;flex-wrap:wrap}.tablewrap tbody td>div input{max-width:100%;width:100%!important}
- .derived-card{padding:11px}.derived-metrics{gap:5px}.derived-metric{padding:8px 4px}.derived-metric-label{font-size:10px}.derived-metric-value{font-size:18px}
+ .derived-card{padding:11px}.derived-metrics{grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.derived-metric{padding:8px 4px}.derived-metric-label{font-size:10px}.derived-metric-value{font-size:18px}
  .stock-card-list{grid-template-columns:1fr;gap:10px}.stock-card{padding:13px}.stock-card-name{font-size:19px}.stock-card-size{font-size:17px}
  .btn{padding:9px 11px}.setting-filters{display:grid;grid-template-columns:1fr;gap:8px}.setting-filters .field{width:100%}
  footer{padding:16px 8px}
@@ -497,14 +497,21 @@ function renderDerivedOutflow(){
       <div class="derived-card-head"><div class="derived-card-name">${esc(x.name)}</div><span class="derived-status">計算済</span></div>
       <div class="derived-metrics">
        <div class="derived-metric"><span class="derived-metric-label">推定出庫</span><strong class="derived-metric-value ${Number(x.qty)<0?'outflow-negative':''}">${x.qty}</strong></div>
-       <div class="derived-metric"><span class="derived-metric-label">発注の目安<br>（推定出庫−現在庫）</span><strong class="derived-metric-value ${Number(x.qty)-Number(x.latestStock)<0?'outflow-negative':''}">${Number(x.qty)-Number(x.latestStock)}</strong></div>
+       <div class="derived-metric"><span class="derived-metric-label">発注の目安<br>（推定出庫−現在庫−受注残）</span><strong class="derived-metric-value ${Number(x.qty)-Number(x.latestStock)-getProductBacklogRemaining_(x.productId)<0?'outflow-negative':''}">${Number(x.qty)-Number(x.latestStock)-getProductBacklogRemaining_(x.productId)}</strong></div>
        <div class="derived-metric"><span class="derived-metric-label">最新棚卸在庫</span><strong class="derived-metric-value">${x.latestStock}</strong></div>
+       <div class="derived-metric"><span class="derived-metric-label">受注残（未入庫）</span><strong class="derived-metric-value">${getProductBacklogRemaining_(x.productId)}</strong></div>
       </div>
       <div class="derived-period">採用棚卸期間：${x.baseDate} ～ ${x.latestDate}</div>
       <div class="derived-order"><input type="number" min="1" step="1" placeholder="発注数量" aria-label="${esc(x.name)}の発注数量" onkeydown="if(event.key==='Enter'){event.preventDefault();addOutflowToOrder('${esc(x.productId)}',this)}"><button type="button" class="btn small" onclick="addOutflowToOrder('${esc(x.productId)}',this.previousElementSibling)">発注書へ</button></div>
      </article>`
   :`<article class="derived-card"><div class="derived-card-head"><div class="derived-card-name">${esc(x.name)}</div><span class="pill gray">計算不可</span></div><div class="derived-unavailable">推定出庫を計算できません<br>${esc(x.reason)}</div></article>`).join('')
   :'<div class="derived-empty">該当する商品がありません</div>';
+}
+// 商品IDが一致する受注残だけを集計（未紐づけ受注残は誤加算しない）
+function getProductBacklogRemaining_(productId){
+ const id=String(productId||'');
+ if(!id)return 0;
+ return (backlogs||[]).reduce((sum,b)=>String(b.productId||'')===id?sum+Math.max(0,Number(b.remaining)||0):sum,0);
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
