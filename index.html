@@ -609,11 +609,22 @@ function renderDerivedOutflow(){
   :'<div class="derived-empty">該当する商品がありません</div>';
 }
 
-// 商品IDが一致する受注残だけを集計（未紐づけ受注残は誤加算しない）
+// 商品IDに加えて商品名・サイズも照合し、別バリエーションの受注残を混ぜない。
+// 同一商品ID・同一バリエーションの重複行は二重計上せず、発注管理で確認できる残数の最大値を採用。
 function getProductBacklogRemaining_(productId){
  const id=String(productId||'');
  if(!id)return 0;
- return (backlogs||[]).reduce((sum,b)=>String(b.productId||'')===id?sum+Math.max(0,Number(b.remaining)||0):sum,0);
+ const product=(products||[]).find(p=>String(p.id||'')===id);
+ if(!product)return 0;
+ const norm=v=>String(v??'').normalize('NFKC').replace(/[\\s\\u3000]+/g,'').trim().toLowerCase();
+ const name=norm(product.name),size=norm(product.size||'');
+ const matched=(backlogs||[]).filter(b=>
+  String(b.productId||'')===id &&
+  norm(b.name)===name &&
+  norm(b.size||'')===size
+ );
+ if(!matched.length)return 0;
+ return Math.max(...matched.map(b=>Math.max(0,Number(b.remaining)||0)));
 }
 function addOutflowToOrder(productId,input){const activePage=document.querySelector('.page.active')?.id||'reports';const scrollTop=window.scrollY;const p=products.find(x=>x.id===productId);const raw=input?.value;const qty=Math.floor(Number(raw));if(!p)return alert('商品情報が見つかりません');if(raw===''||!Number.isFinite(qty)||qty<1)return alert('発注数量を入力してください');if(!p.supplier)return alert('この商品にメーカーが登録されていません。先にメーカーを紐づけてください');$('orderSupplier').value=p.supplier;renderOrderProductOptions();addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:p.unitPrice,currency:p.currency});refreshOrderPreview();if(input)input.value='';document.querySelectorAll('.page').forEach(page=>page.classList.toggle('active',page.id===activePage));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===activePage));window.scrollTo(0,scrollTop);toast('発注明細に追加しました（画面は移動しません）')}
 async function loadReports(){
