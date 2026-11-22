@@ -479,72 +479,119 @@ function clearStockDraft(){
  const date=stockDraftKey();if(!confirm(`${date} の端末入力数をすべてクリアしますか？`))return;
  delete stockInputTotals[date];saveStockInputTotals();renderStockRows();toast('端末入力数をクリアしました');
 }
-let derivedOutflowCache=[];let stocktakeDateOptions=[];let stocktakeDateLoading=false;
-function initDerivedReportFilters(){
- const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
+let derivedOutflowCache=[];
+let stocktakeDateOptions=[];
+let stocktakeDateRequestSeq=0;
+const stocktakeDateCache=new Map();
+
+function initDerivedReportFilters(loadDates=true){
+ const makers=[...new Set(products.map(p=>String(p.supplier||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
  const makerEl=$('derivedMaker');
  if(!makerEl)return;
  const old=makerEl.value;
  makerEl.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');
  makerEl.value=makers.includes(old)?old:'';
  renderDerivedMakerProducts();
- loadStocktakeDateOptions(true);
+ if(loadDates)loadStocktakeDateOptions(true);
 }
+
 async function handleDerivedMakerChange(){
  renderDerivedMakerProducts();
  await loadStocktakeDateOptions(false);
 }
+
 function nearestStocktakeDate(dates,target){
  if(!dates.length)return '';
- return dates.reduce((best,x)=>!best||Math.abs(new Date(x.date+'T00:00:00')-new Date(target+'T00:00:00'))<Math.abs(new Date(best.date+'T00:00:00')-new Date(target+'T00:00:00'))?x:best,null)?.date||'';
+ const targetTime=new Date(target+'T00:00:00').getTime();
+ return dates.reduce((best,x)=>{
+  if(!best)return x;
+  const current=Math.abs(new Date(x.date+'T00:00:00').getTime()-targetTime);
+  const previous=Math.abs(new Date(best.date+'T00:00:00').getTime()-targetTime);
+  return current<previous?x:best;
+ },null)?.date||'';
 }
+
+function applyStocktakeDateOptions(rows,oldFrom,oldTo){
+ stocktakeDateOptions=Array.isArray(rows)?rows:[];
+ const fromEl=$('reportFrom'),toEl=$('reportTo');
+ const makeOptions=(selected,target)=>{
+  const valid=stocktakeDateOptions.some(x=>x.date===selected);
+  const chosen=valid?selected:nearestStocktakeDate(stocktakeDateOptions,target);
+  return '<option value="">棚卸日を選択</option>'+stocktakeDateOptions.map(x=>{
+   const d=String(x.date||'');
+   const label=d.replace(/-/g,'/')+(Number(x.items)>0?`（${Number(x.items).toLocaleString('ja-JP')}商品）`:'');
+   return `<option value="${esc(d)}"${d===chosen?' selected':''}>${esc(label)}</option>`;
+  }).join('');
+ };
+ fromEl.innerHTML=makeOptions(oldFrom,window.reportDefaultFrom||oldFrom);
+ toEl.innerHTML=makeOptions(oldTo,window.reportDefaultTo||oldTo);
+ fromEl.disabled=toEl.disabled=stocktakeDateOptions.length===0;
+ if(!stocktakeDateOptions.length){
+  fromEl.innerHTML=toEl.innerHTML='<option value="">該当する棚卸日がありません</option>';
+ }
+}
+
 async function loadStocktakeDateOptions(initial){
  const fromEl=$('reportFrom'),toEl=$('reportTo');
- if(!fromEl||!toEl||stocktakeDateLoading)return;
- stocktakeDateLoading=true;
+ if(!fromEl||!toEl)return;
+
+ // 連続したメーカー変更で古いAPI応答が後から届いても、最新の選択を上書きさせない。
+ const requestSeq=++stocktakeDateRequestSeq;
+ const maker=String($('derivedMaker')?.value||'').trim();
  const oldFrom=fromEl.value||window.reportDefaultFrom||'';
  const oldTo=toEl.value||window.reportDefaultTo||today();
+
  try{
-  const maker=$('derivedMaker')?.value||'';
-  const rows=await call('getStocktakeDatesBySupplier',maker);
-  stocktakeDateOptions=Array.isArray(rows)?rows:[];
-  const makeOptions=(selected,target)=>{
-   const valid=stocktakeDateOptions.some(x=>x.date===selected);
-   const chosen=valid?selected:nearestStocktakeDate(stocktakeDateOptions,target);
-   return '<option value="">棚卸日を選択</option>'+stocktakeDateOptions.map(x=>{
-    const d=String(x.date||'');
-    const label=d.replace(/-/g,'/')+(Number(x.items)>0?`（${Number(x.items).toLocaleString('ja-JP')}商品）`:'');
-    return `<option value="${esc(d)}"${d===chosen?' selected':''}>${esc(label)}</option>`;
-   }).join('');
-  };
-  fromEl.innerHTML=makeOptions(oldFrom,window.reportDefaultFrom||oldFrom);
-  toEl.innerHTML=makeOptions(oldTo,window.reportDefaultTo||oldTo);
-  fromEl.disabled=toEl.disabled=stocktakeDateOptions.length===0;
-  if(!stocktakeDateOptions.length){
-   fromEl.innerHTML=toEl.innerHTML='<option value="">該当する棚卸日がありません</option>';
-   toast(maker?'このメーカーの棚卸履歴がありません':'棚卸履歴がありません');
+  let rows;
+  if(stocktakeDateCache.has(maker)){
+   rows=stocktakeDateCache.get(maker);
+  }else{
+   fromEl.disabled=toEl.disabled=true;
+   fromEl.innerHTML=toEl.innerHTML='<option value="">棚卸日を読み込み中…</option>';
+   rows=await call('getStocktakeDatesBySupplier',maker);
+   rows=Array.isArray(rows)?rows:[];
+   stocktakeDateCache.set(maker,rows);
   }
+
+  // 応答中にメーカーが変わっていたら古い結果は適用しない。
+  if(requestSeq!==stocktakeDateRequestSeq || maker!==String($('derivedMaker')?.value||'').trim())return;
+  applyStocktakeDateOptions(rows,oldFrom,oldTo);
+  if(!rows.length)toast(maker?'このメーカーの棚卸履歴がありません':'棚卸履歴がありません');
  }catch(e){
+  if(requestSeq!==stocktakeDateRequestSeq)return;
   fromEl.innerHTML=toEl.innerHTML='<option value="">棚卸日を取得できません</option>';
   fromEl.disabled=toEl.disabled=true;
   console.error('棚卸日取得エラー',e);
   alert('棚卸日を取得できませんでした：'+e.message);
- }finally{stocktakeDateLoading=false}
+ }
+}
+
+function normalizeDerivedProductName(value){
+ return String(value??'').normalize('NFKC').replace(/[\s\u3000]+/g,'').trim();
 }
 function renderDerivedMakerProducts(){
- const maker=$('derivedMaker')?.value||'';
+ const maker=String($('derivedMaker')?.value||'').trim();
  const el=$('derivedProduct'); if(!el)return;
- const old=el.value;
- const list=[...new Set(products.filter(p=>!maker||p.supplier===maker).map(p=>p.name))].sort((a,b)=>a.localeCompare(b,'ja'));
- el.innerHTML='<option value="">すべての商品</option>'+list.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
- el.value=list.includes(old)?old:'';
+ const oldKey=normalizeDerivedProductName(el.value);
+ const unique=new Map();
+ products.forEach(p=>{
+  if(maker&&String(p.supplier||'').trim()!==maker)return;
+  const key=normalizeDerivedProductName(p.name);
+  if(key&&!unique.has(key))unique.set(key,String(p.name||'').replace(/[\r\n]+/g,' ').replace(/\s+/g,' ').trim());
+ });
+ const list=[...unique.entries()].sort((a,b)=>a[1].localeCompare(b[1],'ja'));
+ el.innerHTML='<option value="">すべての商品</option>'+list.map(([key,label])=>`<option value="${esc(key)}">${esc(label)}</option>`).join('');
+ el.value=unique.has(oldKey)?oldKey:'';
  renderDerivedOutflow();
 }
 function renderDerivedOutflow(){
- const maker=$('derivedMaker')?.value||'', productName=$('derivedProduct')?.value||'';
+ const maker=String($('derivedMaker')?.value||'').trim();
+ const productKey=normalizeDerivedProductName($('derivedProduct')?.value||'');
+ const productMap=new Map(products.map(p=>[String(p.id),p]));
  const rows=derivedOutflowCache.filter(x=>{
-  const p=products.find(p=>p.id===x.productId);
-  return (!maker||(p&&p.supplier===maker))&&(!productName||(p&&p.name===productName));
+  const p=productMap.get(String(x.productId));
+  return (!maker||(p&&String(p.supplier||'').trim()===maker))&&
+         (!productKey||(p&&normalizeDerivedProductName(p.name)===productKey));
  });
  $('derivedOutRows').innerHTML=rows.length?rows.map(x=>x.status==='calculated'
   ?`<article class="derived-card">
@@ -561,6 +608,7 @@ function renderDerivedOutflow(){
   :`<article class="derived-card"><div class="derived-card-head"><div class="derived-card-name">${esc(x.name)}</div><span class="pill gray">計算不可</span></div><div class="derived-unavailable">推定出庫を計算できません<br>${esc(x.reason)}</div></article>`).join('')
   :'<div class="derived-empty">該当する商品がありません</div>';
 }
+
 // 商品IDが一致する受注残だけを集計（未紐づけ受注残は誤加算しない）
 function getProductBacklogRemaining_(productId){
  const id=String(productId||'');
@@ -585,7 +633,7 @@ async function loadReports(){
   settings=d.settings||settings;
   derivedOutflowCache=r.derivedOutflow||[];
   renderAll();
-  initDerivedReportFilters();
+  initDerivedReportFilters(false);
   renderDerivedOutflow();
   toast('指定期間の推定出庫・欠品予測を更新しました');
  }catch(e){alert(e.message);busy(false)}
