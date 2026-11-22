@@ -125,16 +125,19 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div id="moveRows" class="stock-card-list"></div>
  </div>
  <div class="panel" style="margin-top:14px">
-  <h2>入庫履歴一覧</h2>
-  <p class="hint">過去に登録した入庫から最新分まで、日付順に表示します。メーカー・商品で絞り込めます。</p>
+  <h2>入庫・出庫履歴一覧</h2>
+  <p class="hint">メーカーを選ぶと、そのメーカーの履歴日だけを日付リストに表示します。メーカー未選択なら全メーカーの日付から選べます。商品・バリエーション・入庫／出庫でも絞り込めます。</p>
   <div class="toolbar">
-   <div class="field"><label>メーカー</label><select id="inboundHistoryMaker" onchange="renderInboundHistoryProducts();renderInboundHistory()"><option value="">全メーカー</option></select></div>
-   <div class="field"><label>商品</label><select id="inboundHistoryProduct" onchange="renderInboundHistory()"><option value="">すべての商品</option></select></div>
+   <div class="field"><label>メーカー</label><select id="inboundHistoryMaker" onchange="renderInboundHistoryProducts();renderInboundHistoryDates();renderInboundHistory()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>商品</label><select id="inboundHistoryProduct" onchange="renderInboundHistoryVariants();renderInboundHistory()"><option value="">すべての商品</option></select></div>
+   <div class="field"><label>バリエーション</label><select id="inboundHistoryVariant" onchange="renderInboundHistory()"><option value="">すべて</option></select></div>
+   <div class="field"><label>入庫日・出庫日</label><select id="inboundHistoryDate" onchange="renderInboundHistory()"><option value="">すべての日付</option></select></div>
+   <div class="field"><label>区分</label><select id="inboundHistoryType" onchange="renderInboundHistory()"><option value="">入庫・出庫すべて</option><option value="入庫">入庫のみ</option><option value="出庫">出庫のみ</option></select></div>
    <div class="field"><label>商品・サイズ検索</label><input id="inboundHistorySearch" placeholder="商品名・サイズ" oninput="renderInboundHistory()"></div>
    <button class="btn secondary" onclick="refreshInboundHistory()">履歴を更新</button>
    <strong id="inboundHistoryTotal"></strong>
   </div>
-  <div class="tablewrap"><table><thead><tr><th>入庫日</th><th>メーカー</th><th>商品</th><th>サイズ・色</th><th>入庫数</th><th>単価</th><th>伝票番号・参照</th><th>備考</th></tr></thead><tbody id="inboundHistoryRows"></tbody></table></div>
+  <div class="tablewrap"><table><thead><tr><th>日付</th><th>区分</th><th>メーカー</th><th>商品</th><th>サイズ・色</th><th>数量</th><th>単価</th><th>伝票番号・参照</th><th>備考</th></tr></thead><tbody id="inboundHistoryRows"></tbody></table></div>
  </div>
 </section>
 
@@ -193,7 +196,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div class="row" style="margin-top:14px"><strong id="orderTotal">合計：¥0</strong><button class="btn" onclick="makeSplit()">金額を均等に自動配分</button><button class="btn green" onclick="saveSingleOrder()">分割せず発注保存</button></div>
   <div id="splitResult"></div>
  </div>
- <div class="panel" style="margin-top:14px"><h2>受注残一覧（サイズ・色別）</h2><p class="hint">アップロードされたExcel「2024 防具1」「2024 防具2」「2024 衣類」の注文残を初期値として登録しています。入庫を登録すると該当バリエーションの受注残が減り、アプリで発注書を保存すると増えます。</p><div class="toolbar"><div class="field"><label>メーカー</label><select id="backlogMaker" onchange="renderBacklogProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>商品</label><select id="backlogProduct" onchange="renderBacklogVariants()"><option value="">すべての商品</option></select></div><div class="field"><label>バリエーション</label><select id="backlogVariant" onchange="renderBacklogs()"><option value="">すべて</option></select></div><div class="field"><label>表示</label><select id="backlogFilter" onchange="renderBacklogs()"><option value="all">すべて</option><option value="remaining">受注残あり</option><option value="unmapped">商品未紐づけ</option></select></div><strong id="backlogTotal"></strong></div><div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ・色</th><th>初期受注残</th><th>現在受注残</th><th>元シート</th><th>紐づけ</th></tr></thead><tbody id="backlogRows"></tbody></table></div></div>
+ <div class="panel" style="margin-top:14px"><h2>受注残一覧（サイズ・色別）</h2><p class="hint">アップロードされたExcel「2024 防具1」「2024 防具2」「2024 衣類」の注文残を初期値として登録しています。入庫を登録すると該当バリエーションの受注残が減り、アプリで発注書を保存すると増えます。</p><div class="toolbar"><div class="field"><label>メーカー</label><select id="backlogMaker" onchange="renderBacklogProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>商品</label><select id="backlogProduct" onchange="renderBacklogVariants()"><option value="">すべての商品</option></select></div><div class="field"><label>バリエーション</label><select id="backlogVariant" onchange="renderBacklogs()"><option value="">すべて</option></select></div><div class="field"><label>表示</label><select id="backlogFilter" onchange="renderBacklogs()"><option value="all">すべて</option><option value="remaining">受注残あり</option><option value="unmapped">商品未紐づけ</option></select></div><strong id="backlogTotal"></strong></div><div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ・色</th><th>現在受注残</th><th>元シート</th><th>紐づけ</th></tr></thead><tbody id="backlogRows"></tbody></table></div></div>
  <div class="panel" style="margin-top:14px"><h2>発注履歴</h2><div class="toolbar">
   <div class="field"><label>メーカー</label><select id="orderHistoryMaker" onchange="renderOrders()"><option value="">全メーカー</option></select></div>
   <div class="field"><label>商品・発注ID検索</label><input id="orderHistorySearch" placeholder="商品名・サイズ・発注ID・メーカー" oninput="renderOrders()"></div>
@@ -348,20 +351,31 @@ function initInboundHistoryFilters(){
  const maker=$('inboundHistoryMaker');if(!maker)return;
  const old=maker.value;const makers=[...new Set(inboundHistory.map(x=>x.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
  maker.innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');maker.value=makers.includes(old)?old:'';
- renderInboundHistoryProducts();
+ renderInboundHistoryProducts();renderInboundHistoryDates();
 }
 function renderInboundHistoryProducts(){
  const maker=$('inboundHistoryMaker')?.value||'',el=$('inboundHistoryProduct');if(!el)return;const old=el.value;
  const names=[...new Map(inboundHistory.filter(x=>!maker||x.supplier===maker).map(x=>[normProductName(x.name),x.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));
  el.innerHTML='<option value="">すべての商品</option>'+names.map(([key,name])=>`<option value="${esc(key)}">${esc(name)}</option>`).join('');el.value=names.some(([key])=>key===old)?old:'';
+ renderInboundHistoryVariants();
+}
+function renderInboundHistoryVariants(){
+ const maker=$('inboundHistoryMaker')?.value||'',name=$('inboundHistoryProduct')?.value||'',el=$('inboundHistoryVariant');if(!el)return;const old=el.value;
+ const variants=[...new Set(inboundHistory.filter(x=>(!maker||x.supplier===maker)&&(!name||normProductName(x.name)===name)).map(x=>x.size||'標準'))].sort((a,b)=>a.localeCompare(b,'ja'));
+ el.innerHTML='<option value="">すべて</option>'+variants.map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('');el.value=variants.includes(old)?old:'';
+}
+function renderInboundHistoryDates(){
+ const maker=$('inboundHistoryMaker')?.value||'',el=$('inboundHistoryDate');if(!el)return;const old=el.value;
+ const dates=[...new Set(inboundHistory.filter(x=>!maker||x.supplier===maker).map(x=>x.date).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+ el.innerHTML='<option value="">すべての日付</option>'+dates.map(d=>`<option value="${esc(d)}">${esc(d)}</option>`).join('');el.value=dates.includes(old)?old:'';
 }
 function renderInboundHistory(){
- const maker=$('inboundHistoryMaker')?.value||'',name=$('inboundHistoryProduct')?.value||'',q=($('inboundHistorySearch')?.value||'').toLowerCase();
- const list=inboundHistory.filter(x=>(!maker||x.supplier===maker)&&(!name||sameProductName(x.name,name))&&(!q||`${x.name} ${x.size} ${x.supplier} ${x.reference} ${x.note}`.toLowerCase().includes(q)));
+ const maker=$('inboundHistoryMaker')?.value||'',name=$('inboundHistoryProduct')?.value||'',variant=$('inboundHistoryVariant')?.value||'',date=$('inboundHistoryDate')?.value||'',type=$('inboundHistoryType')?.value||'',q=($('inboundHistorySearch')?.value||'').toLowerCase();
+ const list=inboundHistory.filter(x=>(!maker||x.supplier===maker)&&(!name||normProductName(x.name)===name)&&(!variant||(x.size||'標準')===variant)&&(!date||x.date===date)&&(!type||x.type===type)&&(!q||`${x.name} ${x.size} ${x.supplier} ${x.reference} ${x.note}`.toLowerCase().includes(q)));
  $('inboundHistoryTotal').textContent=`${list.length.toLocaleString('ja-JP')}件 / ${list.reduce((n,x)=>n+Number(x.qty||0),0).toLocaleString('ja-JP')}点`;
- $('inboundHistoryRows').innerHTML=list.map(x=>`<tr><td>${esc(x.date||'—')}</td><td>${esc(x.supplier||'メーカー未設定')}</td><td class="product-name">${esc(x.name)}</td><td class="size">${esc(x.size||'標準')}</td><td class="num"><b>${Number(x.qty||0).toLocaleString('ja-JP')}</b></td><td class="num">${money(x.unitPrice,x.currency)}</td><td>${esc(x.reference)}</td><td>${esc(x.note)}</td></tr>`).join('')||'<tr><td colspan="8">該当する入庫履歴がありません</td></tr>';
+ $('inboundHistoryRows').innerHTML=list.map(x=>`<tr><td>${esc(x.date||'—')}</td><td><span class="pill ${x.type==='入庫'?'green':'red'}">${esc(x.type||'')}</span></td><td>${esc(x.supplier||'メーカー未設定')}</td><td class="product-name">${esc(x.name)}</td><td class="size">${esc(x.size||'標準')}</td><td class="num"><b>${Number(x.qty||0).toLocaleString('ja-JP')}</b></td><td class="num">${money(x.unitPrice,x.currency)}</td><td>${esc(x.reference)}</td><td>${esc(x.note)}</td></tr>`).join('')||'<tr><td colspan="9">該当する入出庫履歴がありません</td></tr>';
 }
-async function refreshInboundHistory(){try{busy(true,'入庫履歴を更新中…');inboundHistory=await call('getInboundHistory');initInboundHistoryFilters();renderInboundHistory();toast('入庫履歴を更新しました')}catch(e){alert(e.message);busy(false)}}
+async function refreshInboundHistory(){try{busy(true,'入出庫履歴を更新中…');inboundHistory=await call('getInboundHistory');initInboundHistoryFilters();renderInboundHistory();toast('入出庫履歴を更新しました')}catch(e){alert(e.message);busy(false)}}
 
 function renderMoveProductNames(){
  const maker=$('moveMaker').value,search=($('moveSearch').value||'').toLowerCase(),old=$('moveName').value;
@@ -672,7 +686,7 @@ function renderBacklogs(){
  const maker=$('backlogMaker')?.value||'',name=$('backlogProduct')?.value||'',variant=$('backlogVariant')?.value||'',f=$('backlogFilter')?.value||'all';
  const total=backlogs.reduce((s,x)=>s+(Number(x.remaining)||0),0);if($('backlogTotal'))$('backlogTotal').textContent='現在の受注残合計：'+total.toLocaleString('ja-JP');
  const list=(backlogs||[]).filter(x=>{const p=products.find(p=>p.id===x.productId),m=x.supplier||p?.supplier;return (!maker||m===maker)&&(!name||x.name===name)&&(!variant||(x.size||'標準')===variant)&&(f==='all'||(f==='remaining'&&Number(x.remaining)>0)||(f==='unmapped'&&!x.productId));});
- $('backlogRows').innerHTML=list.map(x=>`<tr><td>${esc(x.name)}</td><td class="size">${esc(x.size)}</td><td class="num">${Number(x.initial||0).toLocaleString('ja-JP')}</td><td class="num"><b>${Number(x.remaining||0).toLocaleString('ja-JP')}</b></td><td>${esc(x.source)}</td><td>${x.productId?'<span class="pill green">紐づけ済</span>':'<span class="pill red">未紐づけ</span>'}</td></tr>`).join('')||'<tr><td colspan="6">該当する受注残がありません</td></tr>';
+ $('backlogRows').innerHTML=list.map(x=>`<tr><td>${esc(x.name)}</td><td class="size">${esc(x.size)}</td><td class="num"><b>${Number(x.remaining||0).toLocaleString('ja-JP')}</b></td><td>${esc(x.source)}</td><td>${x.productId?'<span class="pill green">紐づけ済</span>':'<span class="pill red">未紐づけ</span>'}</td></tr>`).join('')||'<tr><td colspan="5">該当する受注残がありません</td></tr>';
 }
 
 function renderOrders(){
