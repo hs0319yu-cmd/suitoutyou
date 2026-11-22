@@ -256,7 +256,20 @@ function installApiMessageListener(){
   const data=event.data;
   if(!data||data.app!=='suitoutyou-api'||!data.requestId)return;
   const pending=apiPending.get(String(data.requestId));
-  if(!pending||event.source!==pending.iframe.contentWindow)return;
+  if(!pending)return;
+  // Apps Script may serve the HtmlService response from a googleusercontent
+  // frame after redirect. In that case event.source can differ from the
+  // original form target's WindowProxy, even though the requestId is valid.
+  // Accept only Google Apps Script response origins and correlate by the
+  // unguessable per-request ID.
+  const origin=String(event.origin||'');
+  const trustedOrigin=origin==='https://script.google.com'||
+    origin==='https://googleusercontent.com'||
+    origin.endsWith('.googleusercontent.com');
+  if(!trustedOrigin){
+    console.warn('GAS API message ignored: unexpected origin',origin);
+    return;
+  }
   apiPending.delete(String(data.requestId));
   clearTimeout(pending.timer);
   pending.form.remove();
@@ -284,7 +297,7 @@ function call(name,...args){
   form.appendChild(input);
   const timer=setTimeout(()=>{
    apiPending.delete(requestId);form.remove();iframe.remove();
-   reject(new Error('GASとの通信がタイムアウトしました。ページを再読み込みして、もう一度お試しください。'));
+   reject(new Error('GAS API「'+name+'」の応答が90秒以内に届きませんでした。\nデプロイURL・GAS実行ログ・API返信を確認してください。'));
   },90000);
   apiPending.set(requestId,{resolve,reject,iframe,form,timer});
   document.body.appendChild(iframe);
