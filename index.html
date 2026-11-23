@@ -341,6 +341,16 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   #movementHistoryPanel .toolbar { grid-template-columns:1fr 1fr; }
 }
 
+
+/* モバイル大量データ表示の軽量化 */
+@media(max-width:600px){
+ .mobile-more-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 18px}
+ .mobile-more-wrap .hint{font-size:12px;color:#64748b}
+ .mobile-more{width:100%;min-height:44px;font-size:14px}
+ #productRows tr{content-visibility:auto;contain-intrinsic-size:180px}
+ #moveRows .stock-card,#stockRows .stock-card{content-visibility:auto;contain-intrinsic-size:300px}
+}
+
 </style>
 </head>
 <body>
@@ -376,7 +386,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  <h1>商品・在庫一覧</h1>
  <div class="toolbar">
   <div class="field"><label>商品名・サイズ検索</label><input id="productSearch" placeholder="商品名・サイズ・仕入先"></div>
-  <div class="field"><label>メーカー</label><select id="productMakerFilter" onchange="renderProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>状態</label><select id="productFilter"><option value="">すべて</option><option>要補充</option><option>在庫あり</option><option>未棚卸</option></select></div>
+  <div class="field"><label>メーカー</label><select id="productMakerFilter" onchange="resetMobileList('products');renderProducts()"><option value="">全メーカー</option></select></div><div class="field"><label>状態</label><select id="productFilter"><option value="">すべて</option><option>要補充</option><option>在庫あり</option><option>未棚卸</option></select></div>
   <button class="btn secondary" onclick="loadAll()">更新</button>
  </div>
  <div class="tablewrap"><table><thead><tr><th>商品</th><th>サイズ</th><th>仕入先</th><th>現在庫</th><th>補充ライン</th><th>最新棚卸日</th><th>補充目安</th><th>欠品予測</th><th>欠品予測の採用棚卸期間</th><th>状態</th></tr></thead><tbody id="productRows"></tbody></table></div>
@@ -389,9 +399,9 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div class="row">
    <div class="field"><label>区分</label><select id="moveType" onchange="renderMoveCards()"><option>入庫</option><option>出庫</option></select></div>
    <div class="field"><label>日付</label><input id="moveDate" type="date"></div>
-   <div class="field"><label>メーカー</label><select id="moveMaker" onchange="renderMoveProductNames()"><option value="">全メーカー</option></select></div>
-   <div class="field"><label>商品</label><select id="moveName" onchange="renderMoveOptions()"><option value="">商品を選択（全商品表示）</option></select></div>
-   <div class="field"><label>バリエーション</label><select id="moveProduct" onchange="renderMoveCards()"><option value="">全バリエーション</option></select></div>
+   <div class="field"><label>メーカー</label><select id="moveMaker" onchange="resetMobileList('moves');renderMoveProductNames()"><option value="">全メーカー</option></select></div>
+   <div class="field"><label>商品</label><select id="moveName" onchange="resetMobileList('moves');renderMoveOptions()"><option value="">商品を選択（全商品表示）</option></select></div>
+   <div class="field"><label>バリエーション</label><select id="moveProduct" onchange="resetMobileList('moves');renderMoveCards()"><option value="">全バリエーション</option></select></div>
    <div class="field"><label>対象商品検索</label><input id="moveSearch" placeholder="商品名・サイズ"></div>
   </div>
   <p class="hint">部分棚卸と同じカード形式で数量を入力できます。数量欄に入力してEnter、または＋／－で今回の入力数に加算し、最後にまとめて登録します。</p>
@@ -604,13 +614,13 @@ function initResponsiveTables(){
 }
 function init(){
  ['moveDate','stockDate','orderDate'].forEach(id=>$(id).value=today());
- $('stockDate').addEventListener('change',renderStockRows);
+ $('stockDate').addEventListener('change',()=>{resetMobileList('stock');renderStockRows()});
  window.reportDefaultFrom=new Date(Date.now()-365*86400000).toISOString().slice(0,10);window.reportDefaultTo=today();
  document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>showPage(b.dataset.page));
- $('makerLinkAll').onchange=toggleMakerLinkAll;$('productSearch').oninput=renderProducts;$('productFilter').onchange=renderProducts;
- $('moveSearch').oninput=renderMoveProductNames;$('moveDate').addEventListener('change',renderMoveCards);$('stockSearch').oninput=renderStockRows;
+ $('makerLinkAll').onchange=toggleMakerLinkAll;$('productSearch').oninput=()=>{resetMobileList('products');renderProducts()};$('productFilter').onchange=renderProducts;
+ $('moveSearch').oninput=()=>{resetMobileList('moves');clearTimeout(window.__moveSearchTimer);window.__moveSearchTimer=setTimeout(renderMoveProductNames,140)};$('moveDate').addEventListener('change',()=>{resetMobileList('moves');renderMoveCards()});$('stockSearch').oninput=()=>{resetMobileList('stock');clearTimeout(window.__stockSearchTimer);window.__stockSearchTimer=setTimeout(renderStockRows,140)};
  $('orderSupplier').onchange=()=>{renderOrderProductOptions();refreshOrderPreview()};$('orderProduct').onchange=renderOrderVariantOptions;$('orderVariant').onchange=syncOrderPrice;
- $('stockSupplier').onchange=()=>{renderStockProductOptions();renderStockRows()};$('stockName').onchange=()=>{renderStockVariantOptions();renderStockRows()};$('stockVariant').onchange=renderStockRows;
+ $('stockSupplier').onchange=()=>{resetMobileList('stock');renderStockProductOptions();renderStockRows()};$('stockName').onchange=()=>{resetMobileList('stock');renderStockVariantOptions();renderStockRows()};$('stockVariant').onchange=()=>{resetMobileList('stock');renderStockRows()};
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
@@ -620,12 +630,31 @@ function renderStats(){const s={total:products.length,known:products.filter(p=>p
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
  $('lowList').innerHTML=low.length?low.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　現在庫 ${p.balance} / 補充 ${p.reorderPoint}</div>`).join(''):'該当商品なし';
  $('unknownList').innerHTML=unk.length?unk.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　<span class="pill gray">未棚卸</span></div>`).join(''):'該当商品なし'}
+// スマホでは大量の商品DOMを一度に作らず、必要な分だけ段階表示する
+const MOBILE_LIST_PAGE_SIZE=40;
+const mobileListOffsets={products:0,moves:0,stock:0};
+function isMobileLayout(){return window.matchMedia && window.matchMedia('(max-width: 600px)').matches;}
+function mobileListSlice(list,key){
+ if(!isMobileLayout()) return {items:list,more:false};
+ const limit=mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE;
+ return {items:list.slice(0,limit),more:list.length>limit};
+}
+function mobileMoreButton(key,total){
+ if(!isMobileLayout()) return '';
+ const shown=mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE;
+ return `<div class="mobile-more-wrap"><span class="hint">${Math.min(shown,total).toLocaleString('ja-JP')}件 / ${total.toLocaleString('ja-JP')}件を表示</span>${shown<total?`<button type="button" class="btn secondary mobile-more" onclick="showMoreMobile('${key}')">さらに${MOBILE_LIST_PAGE_SIZE}件表示</button>`:''}</div>`;
+}
+function showMoreMobile(key){mobileListOffsets[key]=(mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE)+MOBILE_LIST_PAGE_SIZE;if(key==='products')renderProducts();else if(key==='moves')renderMoveCards();else if(key==='stock')renderStockRows();}
+function resetMobileList(key){mobileListOffsets[key]=MOBILE_LIST_PAGE_SIZE;}
 function renderProducts(){
  const q=$('productSearch').value.toLowerCase(),f=$('productFilter').value,maker=$('productMakerFilter')?.value||'';
  if($('productMakerFilter')){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));$('productMakerFilter').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('productMakerFilter').value=maker}
  const list=products.filter(p=>(!maker||p.supplier===maker)&&(!q||`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q))&&(!f||p.status===f));
- $('productRows').innerHTML=list.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td>${p.derivedBaseDate&&p.derivedLatestDate?esc(p.derivedBaseDate)+' ～ '+esc(p.derivedLatestDate):'計算不可'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
+ const page=mobileListSlice(list,'products');
+ $('productRows').innerHTML=page.items.map(p=>`<tr><td class="product-name">${esc(p.name)}</td><td class="size">${esc(p.size)}</td><td>${esc(p.supplier)}</td><td class="num">${p.balance===null?'未棚卸':p.balance}</td><td class="num">${p.reorderPoint}</td><td>${esc(p.lastStocktakeDate||'—')}</td><td>${p.daysToReorder==null?'—':p.daysToReorder+'日'}</td><td>${p.daysToStockout==null?'—':p.daysToStockout+'日'}</td><td>${p.derivedBaseDate&&p.derivedLatestDate?esc(p.derivedBaseDate)+' ～ '+esc(p.derivedLatestDate):'計算不可'}</td><td><span class="pill ${p.status==='要補充'?'red':p.status==='未棚卸'?'gray':'green'}">${p.status}</span></td></tr>`).join('');
+ let more=$('productMobileMore');if(!more){more=document.createElement('div');more.id='productMobileMore';$('productRows').closest('.tablewrap').after(more)}more.innerHTML=mobileMoreButton('products',list.length);
 }
+
 function initInboundHistoryFilters(){
  const maker=$('inboundHistoryMaker');if(!maker)return;
  const old=maker.value;const makers=[...new Set(inboundHistory.map(x=>x.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));
@@ -660,13 +689,15 @@ function renderMoveProductNames(){
  const maker=$('moveMaker').value,search=($('moveSearch').value||'').toLowerCase(),old=$('moveName').value;
  const source=filteredByMaker(maker).filter(p=>`${p.name} ${p.size}`.toLowerCase().includes(search));
  const names=[...new Map(source.map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));
- $('moveName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');
+ const mobileNames=isMobileLayout()?names.slice(0,250):names;
+ $('moveName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+mobileNames.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(mobileNames.length<names.length?'<option value="" disabled>検索欄で商品名を絞り込んでください</option>':'');
  $('moveName').value=names.some(([key])=>key===old)?old:'';renderMoveOptions();
 }
 function renderMoveOptions(){
  const maker=$('moveMaker').value,name=$('moveName').value,search=($('moveSearch').value||'').toLowerCase(),sel=$('moveProduct'),old=sel.value;
  const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!search||`${p.name} ${p.size}`.toLowerCase().includes(search)));
- sel.innerHTML='<option value="">全バリエーション</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}</option>`).join('');if(list.some(p=>p.id===old))sel.value=old;renderMoveCards();
+ const mobileList=isMobileLayout()?list.slice(0,300):list;
+ sel.innerHTML='<option value="">全バリエーション</option>'+mobileList.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}</option>`).join('')+(mobileList.length<list.length?'<option value="" disabled>検索欄で絞り込んでください</option>':'');if(list.some(p=>p.id===old))sel.value=old;renderMoveCards();
 }
 const MOVE_INPUT_KEY='code_move_input_totals_v1';let moveInputTotals={};
 try{moveInputTotals=JSON.parse(localStorage.getItem(MOVE_INPUT_KEY)||'{}')||{}}catch(e){moveInputTotals={}}
@@ -677,10 +708,12 @@ function renderMoveCards(){
  if(!$('moveRows'))return;
  const q=($('moveSearch').value||'').toLowerCase(),maker=$('moveMaker').value,name=$('moveName').value,variant=$('moveProduct').value,draft=getMoveDraft();
  const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!variant||p.id===variant)&&(`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q)));
- $('moveRows').innerHTML=list.map(p=>{
+ const page=mobileListSlice(list,'moves');
+ $('moveRows').innerHTML=page.items.map(p=>{
   const qty=Number(draft[p.id]?.qty)||0,price=draft[p.id]?.price??(Number(p.unitPrice)||0),currency=draft[p.id]?.currency??(p.currency||'JPY');
   return `<div class="stock-card"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div>${$('moveType').value==='入庫'?'':`<div class="stock-current">現在の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}</div></div>`}<div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="move-total-${p.id}">${qty}</strong></div><div class="field" style="margin:8px 0"><label>単価（変更可）</label><input type="number" min="0" step="0.01" data-move-price="${p.id}" value="${esc(price)}"></div><div class="field" style="margin:8px 0"><label>通貨</label><select data-move-currency="${p.id}"><option value="JPY" ${currency==='JPY'?'selected':''}>円（JPY）</option><option value="USD" ${currency==='USD'?'selected':''}>ドル（USD）</option></select></div><div class="stock-edit-row"><input type="number" min="1" step="1" inputmode="numeric" data-move-id="${p.id}" placeholder="${$('moveType').value==='入庫'?'入庫':'出庫'}数量を入力" value="" autocomplete="off" onfocus="this.select()" onkeydown="moveEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustMoveCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustMoveCount('${p.id}',-1)">－</button></div></div></div>`;
  }).join('')||'<div class="hint">対象商品がありません</div>';
+ $('moveRows').insertAdjacentHTML('beforeend',mobileMoreButton('moves',list.length));
  const count=Object.values(draft).filter(v=>Number(v?.qty)>0).length,total=Object.values(draft).reduce((sum,v)=>sum+(Number(v?.qty)||0),0);
  $('movePendingSummary').textContent=`未登録：${count}商品 / ${total}点`;
 }
@@ -729,8 +762,8 @@ function filteredByMaker(maker){if(!maker)return products;if(maker==='__UNASSIGN
 function renderOrderProductOptions(){const maker=$('orderSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));$('orderProduct').innerHTML=names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');renderOrderVariantOptions()}
 function renderOrderVariantOptions(){const maker=$('orderSupplier').value,name=$('orderProduct').value;const list=filteredByMaker(maker).filter(p=>sameProductName(p.name,name));$('orderVariant').innerHTML='<option value="">バリエーションを選択</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}（${money(p.unitPrice,p.currency)}）</option>`).join('');syncOrderPrice()}
 function syncOrderPrice(){const p=products.find(x=>x.id===$('orderVariant').value);$('orderUnitPrice').value=p?Number(p.unitPrice)||0:0;if($('orderCurrency'))$('orderCurrency').value=p?(p.currency||'JPY'):'JPY'}
-function renderStockProductOptions(){const maker=$('stockSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));$('stockName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');renderStockVariantOptions()}
-function renderStockVariantOptions(){const maker=$('stockSupplier').value,name=$('stockName').value;const list=(maker?filteredByMaker(maker):[]).filter(p=>!name||sameProductName(p.name,name));$('stockVariant').innerHTML='<option value="">全バリエーション</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')} / 現在庫：${p.balance===null?'未棚卸':p.balance} / 棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}</option>`).join('')}
+function renderStockProductOptions(){const maker=$('stockSupplier').value;const names=[...new Map(filteredByMaker(maker).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));const shown=isMobileLayout()?names.slice(0,250):names;$('stockName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+shown.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(shown.length<names.length?'<option value="" disabled>メーカー選択・検索で絞り込んでください</option>':'');renderStockVariantOptions()}
+function renderStockVariantOptions(){const maker=$('stockSupplier').value,name=$('stockName').value;const list=filteredByMaker(maker).filter(p=>!name||sameProductName(p.name,name));const shown=isMobileLayout()?list.slice(0,300):list;$('stockVariant').innerHTML='<option value="">全バリエーション</option>'+shown.map(p=>`<option value="${p.id}">${esc(p.size||'標準')} / 在庫：${p.balance===null?'未棚卸':p.balance}</option>`).join('')+(shown.length<list.length?'<option value="" disabled>商品名を選択して絞り込んでください</option>':'')}
 const STOCK_INPUT_KEY='code_stock_input_totals_v2';
 let stockInputTotals={};
 try{stockInputTotals=JSON.parse(localStorage.getItem(STOCK_INPUT_KEY)||'{}')||{}}catch(e){stockInputTotals={}}
@@ -740,10 +773,12 @@ function getStockDraft(){return stockInputTotals[stockDraftKey()]||(stockInputTo
 function renderStockRows(){
  const q=($('stockSearch').value||'').toLowerCase(),maker=$('stockSupplier').value,name=$('stockName').value,variant=$('stockVariant').value,draft=getStockDraft();
  const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!variant||p.id===variant)&&(`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q)));
- $('stockRows').innerHTML=list.map(p=>{
+ const page=mobileListSlice(list,'stock');
+ $('stockRows').innerHTML=page.items.map(p=>{
   const total=Number(draft[p.id])||0;
   return `<div class="stock-card" data-stock-card="${p.id}"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div><div class="stock-current">最新の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}${p.stocktakeKind?'（'+esc(p.stocktakeKind)+'）':''}</div><span class="hint">（棚卸後の入出庫を反映した参考表示・今回入力には加算しません）</span></div><div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="stock-total-${p.id}">${total}</strong></div><div class="stock-edit-row"><input type="number" min="1" step="1" inputmode="numeric" data-stock-id="${p.id}" placeholder="棚卸数量を入力" value="" autocomplete="off" onfocus="this.select()" onkeydown="stockEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustStockCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustStockCount('${p.id}',-1)">－</button></div></div></div>`;
  }).join('')||'<div class="hint">対象商品がありません</div>';
+ $('stockRows').insertAdjacentHTML('beforeend',mobileMoreButton('stock',list.length));
  const count=Object.values(draft).filter(v=>Number(v)>0).length,total=Object.values(draft).reduce((s,v)=>s+(Number(v)||0),0);
  if($('stockPendingSummary'))$('stockPendingSummary').textContent=`未確定：${count}商品 / ${total}点`;
 }
