@@ -1035,7 +1035,7 @@ async function loadReports(){
   settings=d.settings||settings;
   derivedOutflowCache=r.derivedOutflow||[];
   renderAll();
-  initDerivedReportFilters(loadDates);
+  initDerivedReportFilters(false);
   renderDerivedOutflow();
   toast('指定期間の推定出庫・欠品予測を更新しました');
  }catch(e){alert(e.message);busy(false)}
