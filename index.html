@@ -347,6 +347,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  .mobile-more-wrap{display:flex;flex-direction:column;align-items:center;gap:8px;padding:12px 4px 18px}
  .mobile-more-wrap .hint{font-size:12px;color:#64748b}
  .mobile-more{width:100%;min-height:44px;font-size:14px}
+ @media(min-width:601px){.mobile-more-wrap{flex-direction:row;justify-content:center}.mobile-more{width:auto;min-width:180px}}
  /* iPhone Safariではcontent-visibility:autoがスクロール中のちらつき原因になるため使用しない */
  #productRows tr,#moveRows .stock-card,#stockRows .stock-card{content-visibility:visible;contain: none}
 }
@@ -697,22 +698,24 @@ function renderStats(){const s={total:products.length,known:products.filter(p=>p
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
  $('lowList').innerHTML=low.length?low.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　現在庫 ${p.balance} / 補充 ${p.reorderPoint}</div>`).join(''):'該当商品なし';
  $('unknownList').innerHTML=unk.length?unk.map(p=>`<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>${esc(p.name)}</b> <span class="size">${esc(p.size)}</span>　<span class="pill gray">未棚卸</span></div>`).join(''):'該当商品なし'}
-// スマホでは大量の商品DOMを一度に作らず、必要な分だけ段階表示する
+// PC・スマホ共通で大量の商品DOMを一度に作らず、必要な分だけ段階表示する
 const MOBILE_LIST_PAGE_SIZE=40;
+const DESKTOP_LIST_PAGE_SIZE=120;
 const mobileListOffsets={products:0,moves:0,stock:0};
 function isMobileLayout(){return window.matchMedia && window.matchMedia('(max-width: 600px)').matches;}
+function currentListPageSize(){return isMobileLayout()?MOBILE_LIST_PAGE_SIZE:DESKTOP_LIST_PAGE_SIZE;}
 function mobileListSlice(list,key){
- if(!isMobileLayout()) return {items:list,more:false};
- const limit=mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE;
+ const pageSize=currentListPageSize();
+ const limit=mobileListOffsets[key]||pageSize;
  return {items:list.slice(0,limit),more:list.length>limit};
 }
 function mobileMoreButton(key,total){
- if(!isMobileLayout()) return '';
- const shown=mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE;
- return `<div class="mobile-more-wrap"><span class="hint">${Math.min(shown,total).toLocaleString('ja-JP')}件 / ${total.toLocaleString('ja-JP')}件を表示</span>${shown<total?`<button type="button" class="btn secondary mobile-more" onclick="showMoreMobile('${key}')">さらに${MOBILE_LIST_PAGE_SIZE}件表示</button>`:''}</div>`;
+ const pageSize=currentListPageSize();
+ const shown=mobileListOffsets[key]||pageSize;
+ return `<div class="mobile-more-wrap"><span class="hint">${Math.min(shown,total).toLocaleString('ja-JP')}件 / ${total.toLocaleString('ja-JP')}件を表示</span>${shown<total?`<button type="button" class="btn secondary mobile-more" onclick="showMoreMobile('${key}')">さらに${pageSize}件表示</button>`:''}</div>`;
 }
-function showMoreMobile(key){mobileListOffsets[key]=(mobileListOffsets[key]||MOBILE_LIST_PAGE_SIZE)+MOBILE_LIST_PAGE_SIZE;if(key==='products')renderProducts();else if(key==='moves')renderMoveCards();else if(key==='stock')renderStockRows();}
-function resetMobileList(key){mobileListOffsets[key]=MOBILE_LIST_PAGE_SIZE;}
+function showMoreMobile(key){mobileListOffsets[key]=(mobileListOffsets[key]||currentListPageSize())+currentListPageSize();if(key==='products')renderProducts();else if(key==='moves')renderMoveCards();else if(key==='stock')renderStockRows();}
+function resetMobileList(key){mobileListOffsets[key]=currentListPageSize();}
 function renderProducts(){
  const q=$('productSearch').value.toLowerCase(),f=$('productFilter').value,maker=$('productMakerFilter')?.value||'';
  if($('productMakerFilter')){const makers=[...new Set(products.map(p=>p.supplier).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ja'));$('productMakerFilter').innerHTML='<option value="">全メーカー</option>'+makers.map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('');$('productMakerFilter').value=maker}
@@ -756,14 +759,14 @@ function renderMoveProductNames(){
  const maker=$('moveMaker').value,search=($('moveSearch').value||'').toLowerCase(),old=$('moveName').value;
  const source=filteredByMaker(maker).filter(p=>`${p.name} ${p.size}`.toLowerCase().includes(search));
  const names=[...new Map(source.map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));
- const mobileNames=isMobileLayout()?names.slice(0,250):names;
+ const mobileNames=names.slice(0,isMobileLayout()?250:600);
  $('moveName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+mobileNames.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(mobileNames.length<names.length?'<option value="" disabled>検索欄で商品名を絞り込んでください</option>':'');
  $('moveName').value=names.some(([key])=>key===old)?old:'';renderMoveOptions();
 }
 function renderMoveOptions(){
  const maker=$('moveMaker').value,name=$('moveName').value,search=($('moveSearch').value||'').toLowerCase(),sel=$('moveProduct'),old=sel.value;
  const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!search||`${p.name} ${p.size}`.toLowerCase().includes(search)));
- const mobileList=isMobileLayout()?list.slice(0,300):list;
+ const mobileList=list.slice(0,isMobileLayout()?300:600);
  sel.innerHTML='<option value="">全バリエーション</option>'+mobileList.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}</option>`).join('')+(mobileList.length<list.length?'<option value="" disabled>検索欄で絞り込んでください</option>':'');if(list.some(p=>p.id===old))sel.value=old;renderMoveCards();
 }
 const MOVE_INPUT_KEY='code_move_input_totals_v1';let moveInputTotals={};
@@ -826,11 +829,11 @@ function renderSupplierSelectors(){const makers=[...new Set(products.map(p=>p.su
 function normProductName(v){return String(v||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim()}
 function sameProductName(a,b){return normProductName(a)===normProductName(b)}
 function filteredByMaker(maker){if(!maker)return products;if(maker==='__UNASSIGNED__')return products.filter(p=>!p.supplier);return products.filter(p=>p.supplier===maker)}
-function renderOrderProductOptions(){const maker=$('orderSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));$('orderProduct').innerHTML=names.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('');renderOrderVariantOptions()}
-function renderOrderVariantOptions(){const maker=$('orderSupplier').value,name=$('orderProduct').value;const list=filteredByMaker(maker).filter(p=>sameProductName(p.name,name));$('orderVariant').innerHTML='<option value="">バリエーションを選択</option>'+list.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}（${money(p.unitPrice,p.currency)}）</option>`).join('');syncOrderPrice()}
+function renderOrderProductOptions(){const maker=$('orderSupplier').value;const names=[...new Map((maker?filteredByMaker(maker):[]).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));const shown=names.slice(0,isMobileLayout()?250:600);$('orderProduct').innerHTML=shown.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(shown.length<names.length?'<option value="" disabled>メーカーを選択して絞り込んでください</option>':'');renderOrderVariantOptions()}
+function renderOrderVariantOptions(){const maker=$('orderSupplier').value,name=$('orderProduct').value;const list=filteredByMaker(maker).filter(p=>sameProductName(p.name,name));const shown=list.slice(0,isMobileLayout()?300:600);$('orderVariant').innerHTML='<option value="">バリエーションを選択</option>'+shown.map(p=>`<option value="${p.id}">${esc(p.size||'標準')}（${money(p.unitPrice,p.currency)}）</option>`).join('')+(shown.length<list.length?'<option value="" disabled>商品・メーカーを絞り込んでください</option>':'');syncOrderPrice()}
 function syncOrderPrice(){const p=products.find(x=>x.id===$('orderVariant').value);$('orderUnitPrice').value=p?Number(p.unitPrice)||0:0;if($('orderCurrency'))$('orderCurrency').value=p?(p.currency||'JPY'):'JPY'}
-function renderStockProductOptions(){const maker=$('stockSupplier').value;const names=[...new Map(filteredByMaker(maker).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));const shown=isMobileLayout()?names.slice(0,250):names;$('stockName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+shown.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(shown.length<names.length?'<option value="" disabled>メーカー選択・検索で絞り込んでください</option>':'');renderStockVariantOptions()}
-function renderStockVariantOptions(){const maker=$('stockSupplier').value,name=$('stockName').value;const list=filteredByMaker(maker).filter(p=>!name||sameProductName(p.name,name));const shown=isMobileLayout()?list.slice(0,300):list;$('stockVariant').innerHTML='<option value="">全バリエーション</option>'+shown.map(p=>`<option value="${p.id}">${esc(p.size||'標準')} / 在庫：${p.balance===null?'未棚卸':p.balance}</option>`).join('')+(shown.length<list.length?'<option value="" disabled>商品名を選択して絞り込んでください</option>':'')}
+function renderStockProductOptions(){const maker=$('stockSupplier').value;const names=[...new Map(filteredByMaker(maker).map(p=>[normProductName(p.name),p.name])).entries()].sort((a,b)=>a[0].localeCompare(b[0],'ja'));const shown=names.slice(0,isMobileLayout()?250:600);$('stockName').innerHTML='<option value="">商品を選択（全商品表示）</option>'+shown.map(([key,n])=>`<option value="${esc(key)}">${esc(n)}</option>`).join('')+(shown.length<names.length?'<option value="" disabled>メーカー選択・検索で絞り込んでください</option>':'');renderStockVariantOptions()}
+function renderStockVariantOptions(){const maker=$('stockSupplier').value,name=$('stockName').value;const list=filteredByMaker(maker).filter(p=>!name||sameProductName(p.name,name));const shown=list.slice(0,isMobileLayout()?300:600);$('stockVariant').innerHTML='<option value="">全バリエーション</option>'+shown.map(p=>`<option value="${p.id}">${esc(p.size||'標準')} / 在庫：${p.balance===null?'未棚卸':p.balance}</option>`).join('')+(shown.length<list.length?'<option value="" disabled>商品名を選択して絞り込んでください</option>':'')}
 const STOCK_INPUT_KEY='code_stock_input_totals_v2';
 let stockInputTotals={};
 try{stockInputTotals=JSON.parse(localStorage.getItem(STOCK_INPUT_KEY)||'{}')||{}}catch(e){stockInputTotals={}}
