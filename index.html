@@ -84,6 +84,132 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
 #userBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 #userEmail{font-size:12px;color:#d9e6f5}
 
+
+/* スマートフォン専用：操作しやすさ・視認性を優先 */
+@media(max-width:600px){
+  html{ -webkit-text-size-adjust:100%; }
+  body{font-size:14px;line-height:1.5}
+  header{padding:9px 10px 8px}
+  .head{align-items:center;gap:8px}
+  .brand{font-size:16px;line-height:1.3}
+  .sub{font-size:10px;line-height:1.35}
+  .head>.sub{max-width:34%}
+  #userBar{gap:5px;justify-content:flex-end;max-width:56%}
+  #userEmail{font-size:10px;line-height:1.3}
+  #userBar .btn{font-size:11px;padding:7px 9px;min-height:34px}
+  #loadState{display:none}
+  nav#nav{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:6px;
+    width:100%;
+    max-width:100%;
+    margin:9px 0 0;
+    padding:0 0 5px;
+    overflow-x:auto;
+    overflow-y:hidden;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+    scroll-snap-type:x proximity;
+  }
+  nav#nav button{
+    flex:0 0 auto;
+    min-width:max-content;
+    white-space:nowrap;
+    padding:9px 13px;
+    font-size:12px;
+    line-height:1.2;
+    border-radius:9px;
+    scroll-snap-align:start;
+  }
+  main{padding:0 10px 36px;margin:10px auto}
+  h1{font-size:19px;line-height:1.35;margin:8px 0 12px}
+  h2{font-size:15px;line-height:1.4;margin-bottom:9px}
+  .panel,.stat{border-radius:13px}
+  .panel{padding:13px;margin-bottom:10px}
+  .grid{gap:8px;margin-bottom:12px}
+  .stat{padding:11px 10px}
+  .stat small{font-size:10px;line-height:1.35}
+  .stat strong{font-size:22px;line-height:1.2}
+  .cards{grid-template-columns:1fr;gap:10px}
+  .row{gap:8px}
+  .field{gap:5px}
+  label{font-size:12px}
+  input,select,textarea{
+    min-height:44px;
+    padding:10px 11px;
+    border-radius:10px;
+    font-size:16px;
+  }
+  textarea{min-height:88px}
+  input:focus,select:focus,textarea:focus{
+    outline:2px solid #93b4ff;
+    outline-offset:1px;
+    border-color:#2563eb;
+  }
+  .btn{min-height:44px;padding:10px 13px;border-radius:10px;font-size:13px}
+  .btn.small{min-height:38px;padding:8px 10px;font-size:12px}
+  .toolbar{gap:8px;margin-bottom:10px}
+  .toolbar>.btn{flex:1 1 auto}
+  .toolbar .field{flex:1 1 100%}
+  .formgrid{grid-template-columns:1fr;gap:9px}
+  .orderline{grid-template-columns:minmax(0,1fr) minmax(90px,.65fr);gap:8px}
+  .orderline .wide{grid-column:1/-1}
+  .splitline{grid-template-columns:1fr;gap:7px;padding:9px 0}
+  .tablewrap{overflow:visible}
+  .tablewrap tbody tr{padding:9px 11px;margin-bottom:10px;border-radius:12px}
+  .tablewrap tbody td{gap:8px;padding:9px 1px;font-size:13px;line-height:1.4}
+  .tablewrap tbody td::before{flex-basis:35%;max-width:35%;font-size:11px;line-height:1.4}
+  .tablewrap tbody td input,.tablewrap tbody td select{
+    width:65%!important;max-width:65%;min-height:40px;font-size:16px;padding:8px;
+  }
+  .tablewrap tbody td button{min-height:36px}
+  .derived-card{padding:12px;border-radius:12px}
+  .derived-card-name{font-size:14px}
+  .derived-metrics{gap:7px;margin:10px 0}
+  .derived-metric{padding:9px 6px}
+  .derived-metric-label{min-height:0;font-size:10px}
+  .derived-metric-value{font-size:20px}
+  .derived-order{flex-wrap:wrap}
+  .derived-order input{font-size:16px;min-height:42px}
+  .stock-card{padding:14px;border-radius:14px}
+  .stock-card-name{font-size:18px}
+  .stock-current{margin:13px 0;font-size:20px}
+  .stock-current strong{font-size:38px}
+  .stock-edit-row input{font-size:32px;min-height:58px}
+  .stock-edit-buttons button{min-height:56px}
+  .stock-plus,.stock-minus{font-size:36px}
+  .hint{font-size:12px;line-height:1.65}
+  #authGate{padding:16px;align-items:center}
+  #authCard{
+    width:100%;
+    max-width:390px;
+    padding:25px 19px;
+    border-radius:18px;
+  }
+  #authCard h1{font-size:22px;margin-bottom:8px}
+  #authCard p{font-size:13px}
+  #appPasswordInput{
+    min-height:54px;
+    text-align:center;
+    letter-spacing:.16em;
+    font-size:20px;
+    border:2px solid #cbd5e1;
+    border-radius:12px;
+  }
+  #authCard .btn{min-height:50px;font-size:15px}
+  #authError{font-size:12px;line-height:1.5}
+  footer{font-size:10px;padding:15px 6px}
+}
+@media(max-width:360px){
+  nav#nav button{padding:8px 10px;font-size:11px}
+  .head>.sub{display:none}
+  #userBar{max-width:62%}
+  .stat strong{font-size:19px}
+  .tablewrap tbody td::before{flex-basis:32%;max-width:32%}
+  .tablewrap tbody td input,.tablewrap tbody td select{width:68%!important;max-width:68%}
+}
+
 </style>
 </head>
 <body>
@@ -91,7 +217,7 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  <div id="authCard">
   <h1>在庫・発注管理</h1>
   <p>スタッフ共通のパスワードを入力してください。</p>
-  <input id="appPasswordInput" type="password" autocomplete="current-password" placeholder="共通パスワードを入力" style="margin:8px 0 12px">
+  <input id="appPasswordInput" type="password" inputmode="numeric" pattern="[0-9]*" enterkeyhint="go" autocomplete="current-password" placeholder="共通パスワードを入力" style="margin:8px 0 12px">
   <button class="btn" style="width:100%" onclick="loginWithAppPassword()">ログイン</button>
   <div id="authError"></div>
   <p style="font-size:11px;margin-top:20px">パスワードが分からない場合は管理者に確認してください。</p>
