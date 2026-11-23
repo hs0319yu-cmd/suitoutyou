@@ -630,8 +630,8 @@ const INVENTORY_CACHE_STORE='bootstrap';
 function openInventoryCacheDb(){
  return new Promise((resolve,reject)=>{
   if(!('indexedDB' in window)){reject(new Error('IndexedDB非対応'));return;}
-  const req=indexedDB.open(INVENTORY_CACHE_DB,1);
-  req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(INVENTORY_CACHE_STORE))db.createObjectStore(INVENTORY_CACHE_STORE);};
+  const req=indexedDB.open(INVENTORY_CACHE_DB,2);
+  req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(INVENTORY_CACHE_STORE))db.createObjectStore(INVENTORY_CACHE_STORE);if(!db.objectStoreNames.contains('reports'))db.createObjectStore('reports');};
   req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('キャッシュを開けません'));
  });
 }
@@ -644,6 +644,30 @@ async function writeInventoryCache(value){
  const db=await openInventoryCacheDb();
  try{return await new Promise((resolve,reject)=>{const tx=db.transaction(INVENTORY_CACHE_STORE,'readwrite');tx.objectStore(INVENTORY_CACHE_STORE).put(value,'latest');tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('キャッシュ保存失敗'));});}
  finally{db.close();}
+}
+// 推定出庫は期間別・同期番号別に端末保存する。同期番号が変われば自動的に古い結果を使わない。
+async function readReportCache(key){
+ const db=await openInventoryCacheDb();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction('reports','readonly');const req=tx.objectStore('reports').get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});}
+ finally{db.close();}
+}
+async function writeReportCache(key,value){
+ const db=await openInventoryCacheDb();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction('reports','readwrite');tx.objectStore('reports').put(value,key);tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('推定出庫キャッシュ保存失敗'));});}
+ finally{db.close();}
+}
+function applyReportData(report,bootstrap){
+ if(bootstrap&&bootstrap.ok===true&&Array.isArray(bootstrap.products)){
+  products=bootstrap.products;
+  orders=Array.isArray(bootstrap.orders)?bootstrap.orders:orders;
+  backlogs=Array.isArray(bootstrap.backlogs)?bootstrap.backlogs:backlogs;
+  backlogTotalsByProductId=bootstrap.backlogTotalsByProductId||backlogTotalsByProductId;
+  settings=bootstrap.settings||settings;
+  renderAll();
+ }
+ derivedOutflowCache=Array.isArray(report&&report.derivedOutflow)?report.derivedOutflow:[];
+ initDerivedReportFilters(false);
+ renderDerivedOutflow();
 }
 function applyBootstrapData(d,loadDates=true){
  products=d.products;
@@ -1021,25 +1045,42 @@ async function loadReports(){
  const from=$('reportFrom').value, to=$('reportTo').value;
  if(!from||!to)return;
  if(from>to)return alert('開始日は終了日以前の日付にしてください');
- busy(true,'指定期間の棚卸差異・欠品予測を集計中…');
+ const cacheKey=from+'|'+to;
+ let cached=null,revision='';
+ try{
+  // まず同期番号と端末保存結果を照合。変更がなければ通信なしで推定出庫を表示。
+  const rev=await call('getSyncRevision');
+  revision=String(rev&&rev.revision||'');
+  if(revision)cached=await readReportCache(cacheKey);
+  if(cached&&cached.revision===revision&&cached.report){
+   applyReportData(cached.report,cached.bootstrap);
+   busy(false);
+   toast('推定出庫（端末保存データ）');
+   return;
+  }
+ }catch(cacheError){console.warn('推定出庫キャッシュ確認失敗。サーバーから取得します',cacheError);}
+ busy(true,'指定期間の推定出庫を更新中…');
  try{
   const [r,d]=await Promise.all([
    call('getReports',from,to),
    call('getBootstrapForApp20261119',from,to)
   ]);
   if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('指定期間の商品データを取得できません');
-  products=d.products;
-  orders=Array.isArray(d.orders)?d.orders:orders;
-  backlogs=Array.isArray(d.backlogs)?d.backlogs:backlogs;
-  backlogTotalsByProductId=d.backlogTotalsByProductId||backlogTotalsByProductId;
-  settings=d.settings||settings;
-  derivedOutflowCache=r.derivedOutflow||[];
-  renderAll();
-  initDerivedReportFilters(false);
-  renderDerivedOutflow();
-  toast('指定期間の推定出庫・欠品予測を更新しました');
+  applyReportData(r,d);
+  try{
+   const latest=await call('getSyncRevision');
+   const latestRevision=String(latest&&latest.revision||revision);
+   // 集計中にデータ更新があった場合、古い結果に新しい同期番号を付けて保存しない。
+   if(!revision||latestRevision===revision){
+    await writeReportCache(cacheKey,{revision:latestRevision,report:r,bootstrap:d,savedAt:Date.now()});
+   }else{
+    console.warn('集計中にデータ更新を検知したため、推定出庫キャッシュは保存しません');
+   }
+  }catch(saveError){console.warn('推定出庫を端末に保存できません',saveError);}
+  toast('推定出庫を更新して端末に保存しました');
  }catch(e){alert(e.message);busy(false)}
 }
+
 async function runAI(){busy(true,'Gemini分析中…');$('aiResult').textContent='指定期間の出庫傾向・現在庫・欠品リスクをAIが分析しています…';try{const r=await call('aiForecast',$('reportFrom').value,$('reportTo').value);$('aiResult').innerHTML=`<div class="hint">モデル：${esc(r.model)} / 対象期間：${esc(r.from)} ～ ${esc(r.to)} / リスク候補 ${r.candidateCount}商品</div><div style="white-space:pre-wrap;line-height:1.7;margin-top:8px">${esc(r.text)}</div>`;toast('AI分析完了')}catch(e){$('aiResult').textContent=e.message;busy(false)}}
  function addSelectedOrderProduct(){const p=products.find(x=>x.id===$('orderVariant').value);if(!p)return alert('メーカー・商品・バリエーションを選択してください');const raw=$('orderQty').value,qty=Math.floor(Number(raw));if(!raw||!Number.isFinite(qty)||qty<1)return alert('数量を入力してください');const price=Math.max(0,Number($('orderUnitPrice').value)||0);addOrderLine({productId:p.id,name:p.name,size:p.size,qty,unitPrice:price,currency:$('orderCurrency').value});$('orderQty').value='';/* メーカーと商品は維持し、次のサイズだけ選び直せるようにする */$('orderVariant').value='';$('orderUnitPrice').value='';$('orderCurrency').value='JPY';refreshOrderPreview()}
 function addOrderLine(p={}){const div=document.createElement('div');div.className='orderline';div.dataset.productId=p.productId||'';div.innerHTML=`<div class="field wide"><label>商品・メーカー</label><input class="ol-name" readonly value="${esc(p.name||'')}" placeholder="商品選択から追加"></div><div class="field"><label>バリエーション</label><input class="ol-size" readonly value="${esc(p.size||'')}"></div><div class="field"><label>数量</label><input class="ol-qty" type="number" min="0" step="1" value="${p.qty||1}"></div><div class="field"><label>単価</label><input class="ol-price" type="number" min="0" step="0.01" value="${p.unitPrice||0}"></div><div class="field"><label>通貨</label><select class="ol-currency"><option value="JPY" ${p.currency!=='USD'?'selected':''}>JPY</option><option value="USD" ${p.currency==='USD'?'selected':''}>USD</option></select></div><button class="btn warn small" onclick="this.parentElement.remove();calcOrder();refreshOrderPreview()">削除</button>`;['ol-qty','ol-price'].forEach(c=>div.querySelector('.'+c).oninput=()=>{calcOrder();refreshOrderPreview()});$('orderLines').appendChild(div);calcOrder()}
