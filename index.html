@@ -978,16 +978,19 @@ async function loadStocktakeDateOptions(initial){
   console.warn('棚卸日一覧の端末保存データを読み込めません',cacheError);
  }
 
- // 端末保存データを表示した後で同期番号を確認。変更がなければGASへ日付一覧を取りに行かない。
- try{
-  const rev=await call('getSyncRevision');
-  const revision=String(rev&&rev.revision||'');
-  if(hasCached&&revision&&String(cachedEntry.revision||'')===revision){
-   if(requestSeq===stocktakeDateRequestSeq)applyStocktakeDateOptions(cachedEntry.rows,oldFrom,oldTo);
-   return;
+ // 保存データがある場合だけ同期番号を確認する。
+ // 初回（保存データなし）は余分な通信を挟まず、棚卸日一覧を直接取得する。
+ if(hasCached){
+  try{
+   const rev=await call('getSyncRevision');
+   const revision=String(rev&&rev.revision||'');
+   if(revision&&String(cachedEntry.revision||'')===revision){
+    if(requestSeq===stocktakeDateRequestSeq)applyStocktakeDateOptions(cachedEntry.rows,oldFrom,oldTo);
+    return;
+   }
+  }catch(revisionError){
+   console.warn('棚卸日一覧の同期番号を確認できません。最新一覧を取得します',revisionError);
   }
- }catch(revisionError){
-  console.warn('棚卸日一覧の同期番号を確認できません。最新一覧を取得します',revisionError);
  }
 
  try{
