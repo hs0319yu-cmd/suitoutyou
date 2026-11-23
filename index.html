@@ -76,11 +76,30 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
  .btn{padding:9px 11px}.setting-filters{display:grid;grid-template-columns:1fr;gap:8px}.setting-filters .field{width:100%}
  footer{padding:16px 8px}
 }
+
+#authGate{position:fixed;inset:0;z-index:99999;background:#f4f7fb;display:flex;align-items:center;justify-content:center;padding:20px}
+#authCard{width:min(440px,100%);background:#fff;border:1px solid var(--line);border-radius:18px;padding:28px;box-shadow:0 12px 40px #10243b18;text-align:center}
+#authCard h1{font-size:23px;margin:0 0 10px}#authCard p{color:var(--muted);line-height:1.7;font-size:14px}
+#authError{color:#b42318;white-space:pre-wrap;font-size:13px;margin-top:12px}
+#userBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+#userEmail{font-size:12px;color:#d9e6f5}
+
 </style>
 </head>
 <body>
+<div id="authGate">
+ <div id="authCard">
+  <h1>在庫・発注管理</h1>
+  <p>スタッフ共通のパスワードを入力してください。</p>
+  <input id="appPasswordInput" type="password" autocomplete="current-password" placeholder="共通パスワードを入力" style="margin:8px 0 12px">
+  <button class="btn" style="width:100%" onclick="loginWithAppPassword()">ログイン</button>
+  <div id="authError"></div>
+  <p style="font-size:11px;margin-top:20px">パスワードが分からない場合は管理者に確認してください。</p>
+ </div>
+</div>
+
 <header id="pageHeader">
- <div class="head"><div><div class="brand">在庫・発注管理</div><div class="sub">部分棚卸対応 / 入出庫履歴 / 需要予測 / 分割発注</div></div><div id="loadState" class="sub">読み込み中…</div></div>
+ <div class="head"><div><div class="brand">在庫・発注管理</div><div class="sub">部分棚卸対応 / 入出庫履歴 / 需要予測 / 分割発注</div></div><div id="userBar"><span id="userEmail">共通パスワードでログイン中</span><button class="btn secondary small" onclick="logoutApp()">ログアウト</button><span id="loadState" class="sub">準備中…</span></div></div>
  <nav id="nav">
   <button class="active" data-page="dashboard">ダッシュボード</button><button data-page="products">商品・在庫</button><button data-page="makerlink">メーカー紐づけ</button><button data-page="movement">入出庫登録</button><button data-page="stocktake">部分棚卸</button><button data-page="reports">推定出庫</button><button data-page="orders">発注管理</button><button data-page="settings">設定</button>
  </nav>
@@ -250,6 +269,8 @@ const money=(n,c)=>String(c||'JPY')==='USD'?'$'+Number(n||0).toLocaleString('en-
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`};
 const GAS_API_URL='https://script.google.com/macros/s/AKfycbxIBqXqVy03xdhrS-BM0Nzo8AZ3fqbDQ0MqYy1wGeyGgi6Qi8sLwYuENu0j926_WtRmCg/exec';
+// Google Cloud Consoleで作成した「ウェブアプリ」OAuthクライアントIDに置き換えてください。
+let appSessionToken=sessionStorage.getItem('inventoryAppSessionToken')||'';
 const apiPending=new Map();
 let apiMessageListenerInstalled=false;
 function installApiMessageListener(){
@@ -294,7 +315,8 @@ function call(name,...args){
   form.action=GAS_API_URL;
   form.target=iframe.name;
   form.style.display='none';
-  const payload={app:'suitoutyou-api',requestId,method:name,args};
+  if(name!=='loginWithPassword'&&!appSessionToken){reject(new Error('ログインが必要です。'));return;}
+  const payload={app:'suitoutyou-api',requestId,method:name,args,sessionToken:appSessionToken};
   const input=document.createElement('input');
   input.type='hidden';input.name='payload';input.value=JSON.stringify(payload);
   form.appendChild(input);
@@ -779,7 +801,39 @@ function renderSettingProducts(){
 }
 async function saveProductSettings(){const data=[...document.querySelectorAll('[data-setting-id]')].map(r=>({id:r.dataset.settingId,supplier:r.querySelector('.set-supplier').value,reorderPoint:r.querySelector('.set-reorder').value,unitPrice:r.querySelector('.set-price').value,currency:r.querySelector('.set-currency').value}));try{products=await call('setProductSettings',data);renderAll();toast('商品設定を保存しました')}catch(e){alert(e.message)}}
 async function saveGeminiKey(){const k=$('geminiKey').value;if(!k)return alert('APIキーを入力してください');try{settings=await call('setGeminiApiKey',k);$('geminiKey').value='';$('keyStatus').textContent='APIキー登録済み';toast('APIキーを安全に保存しました')}catch(e){alert(e.message)}}
-init();
+
+function showAuthError(message){$('authError').textContent=String(message||'ログインできませんでした');}
+async function loginWithAppPassword(){
+ const password=$('appPasswordInput').value;
+ if(!password){showAuthError('パスワードを入力してください。');return;}
+ $('authError').textContent='認証中…';
+ try{
+  const result=await call('loginWithPassword',password);
+  appSessionToken=String(result.sessionToken||'');
+  if(!appSessionToken)throw new Error('ログイン情報を取得できませんでした。');
+  sessionStorage.setItem('inventoryAppSessionToken',appSessionToken);
+  $('appPasswordInput').value='';
+  await enterApp();
+ }catch(e){appSessionToken='';sessionStorage.removeItem('inventoryAppSessionToken');showAuthError(e.message||'ログインできませんでした');}
+}
+async function enterApp(){
+ try{
+  await call('getMyAccess');
+  $('authGate').style.display='none';
+  $('userEmail').textContent='共通パスワードでログイン中';
+  init();
+ }catch(e){
+  appSessionToken='';sessionStorage.removeItem('inventoryAppSessionToken');
+  $('authGate').style.display='flex';
+  showAuthError(e.message||'ログインの有効期限が切れました。');
+ }
+}
+function logoutApp(){
+ appSessionToken='';sessionStorage.removeItem('inventoryAppSessionToken');
+ location.reload();
+}
+$('appPasswordInput').addEventListener('keydown',e=>{if(e.key==='Enter')loginWithAppPassword();});
+if(appSessionToken){enterApp();}else{$('authGate').style.display='flex';}
 </script>
 </body>
 </html>
