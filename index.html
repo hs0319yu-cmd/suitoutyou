@@ -959,30 +959,60 @@ async function loadStocktakeDateOptions(initial){
  const fromEl=$('reportFrom'),toEl=$('reportTo');
  if(!fromEl||!toEl)return;
 
- // 連続したメーカー変更で古いAPI応答が後から届いても、最新の選択を上書きさせない。
+ // メーカーごとの棚卸日一覧をIndexedDBに保存し、次回は通信前に即表示する。
  const requestSeq=++stocktakeDateRequestSeq;
  const maker=String($('derivedMaker')?.value||'').trim();
  const oldFrom=fromEl.value||window.reportDefaultFrom||'';
  const oldTo=toEl.value||window.reportDefaultTo||today();
+ const cacheKey='stocktakeDates|'+maker;
+ let cachedEntry=null,hasCached=false;
 
  try{
-  let rows;
-  if(stocktakeDateCache.has(maker)){
-   rows=stocktakeDateCache.get(maker);
-  }else{
+  cachedEntry=await readReportCache(cacheKey);
+  if(cachedEntry&&Array.isArray(cachedEntry.rows)){
+   applyStocktakeDateOptions(cachedEntry.rows,oldFrom,oldTo);
+   stocktakeDateCache.set(maker,cachedEntry.rows);
+   hasCached=true;
+  }
+ }catch(cacheError){
+  console.warn('棚卸日一覧の端末保存データを読み込めません',cacheError);
+ }
+
+ // 端末保存データを表示した後で同期番号を確認。変更がなければGASへ日付一覧を取りに行かない。
+ try{
+  const rev=await call('getSyncRevision');
+  const revision=String(rev&&rev.revision||'');
+  if(hasCached&&revision&&String(cachedEntry.revision||'')===revision){
+   if(requestSeq===stocktakeDateRequestSeq)applyStocktakeDateOptions(cachedEntry.rows,oldFrom,oldTo);
+   return;
+  }
+ }catch(revisionError){
+  console.warn('棚卸日一覧の同期番号を確認できません。最新一覧を取得します',revisionError);
+ }
+
+ try{
+  if(!hasCached){
    fromEl.disabled=toEl.disabled=true;
    fromEl.innerHTML=toEl.innerHTML='<option value="">棚卸日を読み込み中…</option>';
-   rows=await call('getStocktakeDatesBySupplier',maker);
-   rows=Array.isArray(rows)?rows:[];
-   stocktakeDateCache.set(maker,rows);
   }
-
-  // 応答中にメーカーが変わっていたら古い結果は適用しない。
+  const rowsRaw=await call('getStocktakeDatesBySupplier',maker);
+  const rows=Array.isArray(rowsRaw)?rowsRaw:[];
   if(requestSeq!==stocktakeDateRequestSeq || maker!==String($('derivedMaker')?.value||'').trim())return;
+  stocktakeDateCache.set(maker,rows);
   applyStocktakeDateOptions(rows,oldFrom,oldTo);
+  try{
+   const latest=await call('getSyncRevision');
+   const latestRevision=String(latest&&latest.revision||'');
+   await writeReportCache(cacheKey,{revision:latestRevision,rows,savedAt:Date.now()});
+  }catch(saveError){console.warn('棚卸日一覧を端末に保存できません',saveError);}
   if(!rows.length)toast(maker?'このメーカーの棚卸履歴がありません':'棚卸履歴がありません');
  }catch(e){
   if(requestSeq!==stocktakeDateRequestSeq)return;
+  if(hasCached){
+   // 通信に失敗しても表示済みの保存一覧は残す。
+   console.warn('棚卸日一覧の最新化に失敗。端末保存データを使用します',e);
+   return;
+  }
   fromEl.innerHTML=toEl.innerHTML='<option value="">棚卸日を取得できません</option>';
   fromEl.disabled=toEl.disabled=true;
   console.error('棚卸日取得エラー',e);
