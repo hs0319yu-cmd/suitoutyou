@@ -210,6 +210,80 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   .tablewrap tbody td input,.tablewrap tbody td select{width:68%!important;max-width:68%}
 }
 
+
+/* 2026-11 スマホ画面の再調整：PC表示には影響させない */
+@media (max-width: 600px) {
+  html, body { max-width:100%; overflow-x:hidden; }
+  header#pageHeader { padding:10px 12px 9px; }
+  .head { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px 10px; }
+  .head > div:first-child { min-width:0; }
+  .brand { font-size:17px; }
+  .sub { font-size:11px; line-height:1.35; }
+  #userBar { min-width:0; max-width:none; display:flex; flex-direction:column; align-items:flex-end; gap:5px; }
+  #userEmail { font-size:10px; white-space:nowrap; }
+  #userBar .btn { min-height:34px; font-size:11px; padding:6px 10px; }
+  nav#nav { margin-top:9px; padding:0 0 4px; gap:7px; scrollbar-width:none; }
+  nav#nav::-webkit-scrollbar { display:none; }
+  nav#nav button { min-height:40px; padding:9px 12px; font-size:12px; border-radius:10px; }
+  main { padding:0 10px 30px; margin:10px auto; }
+
+  /* 部分棚卸の絞り込み：横並び崩れを防いで2列に */
+  #stocktake .row:has(#stockDate) {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:10px 9px;
+    align-items:start;
+  }
+  #stocktake .row:has(#stockDate) .field { width:auto; min-width:0; max-width:none; flex:none; }
+  #stocktake #stockDate,
+  #stocktake #stockKind,
+  #stocktake #stockSupplier,
+  #stocktake #stockName,
+  #stocktake #stockVariant,
+  #stocktake #stockSearch { width:100%; min-width:0; max-width:100%; font-size:15px; }
+  #stocktake .row:has(#stockSearch) .field:last-child { grid-column:1/-1; }
+  #stocktake > .panel > p.hint { margin:12px 1px 14px; font-size:12px; line-height:1.55; }
+
+  /* 棚卸確定ボタンと一時入力クリアを縦に整理 */
+  #stocktake .row:has(#stockPendingSummary) {
+    display:grid;
+    grid-template-columns:1fr;
+    gap:8px;
+    align-items:stretch;
+    margin:12px 0 !important;
+  }
+  #stockPendingSummary { font-size:14px; padding:3px 1px; }
+  #stocktake .row:has(#stockPendingSummary) .btn { width:100%; min-height:46px; font-size:14px; }
+
+  /* 棚卸商品カード：情報を左寄せ・コンパクトに */
+  #stockRows { grid-template-columns:minmax(0,1fr); gap:10px; }
+  #stockRows .stock-card {
+    min-width:0; padding:13px 13px 14px; border:1px solid #d9e2ee;
+    border-radius:14px; box-shadow:0 2px 7px rgba(20,40,70,.05);
+  }
+  #stockRows .stock-card-name { font-size:17px; line-height:1.4; overflow-wrap:anywhere; }
+  #stockRows .stock-card-size { margin-top:5px; font-size:15px; line-height:1.4; }
+  #stockRows .stock-card-size .hint { font-size:12px; }
+  #stockRows .stock-current {
+    margin:10px 0 12px; padding:9px 10px; border-radius:10px;
+    background:#f4f7fb; text-align:left; font-size:14px; line-height:1.5;
+  }
+  #stockRows .stock-current strong { font-size:29px; line-height:1; margin-left:3px; }
+  #stockRows .stock-current .hint { display:block; margin-top:5px; font-size:11px; line-height:1.45; overflow-wrap:anywhere; }
+  #stockRows .stock-edit-row { display:grid; grid-template-columns:minmax(0,1fr); gap:8px; }
+  #stockRows .stock-edit-row input {
+    min-height:58px; padding:8px 10px; font-size:27px; border-width:2px;
+    border-radius:11px; letter-spacing:.02em;
+  }
+  #stockRows .stock-edit-buttons { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  #stockRows .stock-edit-buttons button { min-height:58px; font-size:34px; border-radius:11px; }
+}
+@media (max-width: 380px) {
+  #stocktake .row:has(#stockDate) { gap:8px 7px; }
+  #stockRows .stock-card { padding:11px; }
+  #stockRows .stock-card-name { font-size:16px; }
+}
+
 </style>
 </head>
 <body>
