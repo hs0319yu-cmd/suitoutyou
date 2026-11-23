@@ -624,7 +624,74 @@ function init(){
  initResponsiveTables();loadAll();
 }
 function showPage(id){document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active',b.dataset.page===id));if(id==='reports')loadReports();if(id==='orders')renderOrders();if(id==='settings')renderSettingProducts();if(id==='makerlink')renderMakerLinkRows()}
-async function loadAll(){busy(true,'データ読込中…');try{const d=await call('getBootstrapForApp20261119',window.reportDefaultFrom||'',window.reportDefaultTo||today());if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');products=d.products;orders=Array.isArray(d.orders)?d.orders:[];backlogs=Array.isArray(d.backlogs)?d.backlogs:[];backlogTotalsByProductId=d.backlogTotalsByProductId||{};inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];settings=d.settings||{};renderAll();initDerivedReportFilters();initInboundHistoryFilters();renderInboundHistory();toast('更新しました')}catch(e){alert(e.message);busy(false)}}
+const INVENTORY_CACHE_DB='suitoutyou_inventory_cache';
+const INVENTORY_CACHE_STORE='bootstrap';
+function openInventoryCacheDb(){
+ return new Promise((resolve,reject)=>{
+  if(!('indexedDB' in window)){reject(new Error('IndexedDB非対応'));return;}
+  const req=indexedDB.open(INVENTORY_CACHE_DB,1);
+  req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains(INVENTORY_CACHE_STORE))db.createObjectStore(INVENTORY_CACHE_STORE);};
+  req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error||new Error('キャッシュを開けません'));
+ });
+}
+async function readInventoryCache(){
+ const db=await openInventoryCacheDb();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction(INVENTORY_CACHE_STORE,'readonly');const req=tx.objectStore(INVENTORY_CACHE_STORE).get('latest');req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error);});}
+ finally{db.close();}
+}
+async function writeInventoryCache(value){
+ const db=await openInventoryCacheDb();
+ try{return await new Promise((resolve,reject)=>{const tx=db.transaction(INVENTORY_CACHE_STORE,'readwrite');tx.objectStore(INVENTORY_CACHE_STORE).put(value,'latest');tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('キャッシュ保存失敗'));});}
+ finally{db.close();}
+}
+function applyBootstrapData(d,loadDates=true){
+ products=d.products;
+ orders=Array.isArray(d.orders)?d.orders:[];
+ backlogs=Array.isArray(d.backlogs)?d.backlogs:[];
+ backlogTotalsByProductId=d.backlogTotalsByProductId||{};
+ inboundHistory=Array.isArray(d.inboundHistory)?d.inboundHistory:[];
+ settings=d.settings||{};
+ renderAll();
+ initDerivedReportFilters(loadDates);
+ initInboundHistoryFilters();
+ renderInboundHistory();
+}
+async function loadAll(){
+ const from=window.reportDefaultFrom||'',to=window.reportDefaultTo||today();
+ let cached=null;
+ // まず端末内の保存データを読み、通信を待たずに画面を組み立てる。
+ try{
+  cached=await readInventoryCache();
+  if(cached&&cached.data&&Array.isArray(cached.data.products)&&cached.from===from&&cached.to===to){
+   applyBootstrapData(cached.data,false);
+   busy(false);
+   $('loadState').textContent='保存データ表示中';
+  }else cached=null;
+ }catch(cacheError){console.warn('ローカル保存データを読み込めません',cacheError);cached=null;}
+ try{
+  const revisionResult=await call('getSyncRevision');
+  const revision=String(revisionResult&&revisionResult.revision||'');
+  if(cached&&revision&&String(cached.revision)===revision){
+   toast('最新データ（端末保存）');
+   return;
+  }
+  busy(true,cached?'変更データを確認中…':'初回データ読込中…');
+  const d=await call('getBootstrapForApp20261119',from,to);
+  if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');
+  applyBootstrapData(d,true);
+  const latestRevision=await call('getSyncRevision');
+  await writeInventoryCache({revision:String(latestRevision&&latestRevision.revision||revision),from,to,data:d,savedAt:Date.now()});
+  toast(cached?'データを更新しました':'初回データを保存しました');
+ }catch(e){
+  if(cached){
+   busy(false);
+   $('loadState').textContent='保存データで表示中（通信未確認）';
+   console.warn('同期できないため端末保存データを使用',e);
+  }else{
+   alert(e.message);busy(false);
+  }
+ }
+}
 function renderAll(){renderStats();renderProducts();renderSupplierSelectors();renderMoveProductNames();renderMoveCards();renderStockRows();renderOrders();initBacklogFilters();renderBacklogs();renderSettingProductOptions();renderMakerLinkRows();renderOrderProductOptions();renderStockProductOptions();renderStockRows();refreshOrderPreview();$('keyStatus').textContent=settings.hasGeminiKey?'APIキー登録済み':'APIキー未登録'}
 function renderStats(){const s={total:products.length,known:products.filter(p=>p.balance!==null).length,unknown:products.filter(p=>p.balance===null).length,low:products.filter(p=>p.status==='要補充').length};$('stats').innerHTML=[['登録商品',s.total+'件'],['在庫確認済',s.known+'件'],['要補充',s.low+'件'],['未確認',s.unknown+'件']].map(x=>`<div class="stat"><small>${x[0]}</small><strong>${x[1]}</strong></div>`).join('');
  const low=products.filter(p=>p.status==='要補充').slice(0,12),unk=products.filter(p=>p.balance===null).slice(0,12);
@@ -965,7 +1032,7 @@ async function loadReports(){
   settings=d.settings||settings;
   derivedOutflowCache=r.derivedOutflow||[];
   renderAll();
-  initDerivedReportFilters(false);
+  initDerivedReportFilters(loadDates);
   renderDerivedOutflow();
   toast('指定期間の推定出庫・欠品予測を更新しました');
  }catch(e){alert(e.message);busy(false)}
