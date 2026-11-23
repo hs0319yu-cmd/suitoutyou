@@ -284,6 +284,63 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   #stockRows .stock-card-name { font-size:16px; }
 }
 
+
+/* 入庫・出庫：スマホ専用レイアウト */
+@media (max-width: 600px) {
+  #movement > .panel:first-of-type { padding: 12px; }
+  #movement > .panel:first-of-type > .row:first-child {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  }
+  #movement > .panel:first-of-type > .row:first-child .field { min-width: 0; width: 100%; }
+  #moveSearch { min-height: 44px; }
+  #movement .hint { font-size: 12px; line-height: 1.55; }
+  #movement #movePendingSummary { display:block; width:100%; font-size:15px; padding:4px 0; }
+  #movement > .panel:first-of-type > .row:nth-of-type(2) {
+    display:grid; grid-template-columns:1fr; gap:8px; align-items:stretch !important;
+  }
+  #movement > .panel:first-of-type > .row:nth-of-type(2) .btn { width:100%; min-height:48px; }
+  #movement > .panel:first-of-type > .field { max-width:none !important; width:100%; }
+  #movement #moveRows { grid-template-columns:minmax(0,1fr); gap:10px; }
+  #movement #moveRows .stock-card {
+    padding:13px; border-width:1px; border-radius:13px; min-width:0;
+  }
+  #movement #moveRows .stock-card-name { font-size:18px; line-height:1.4; overflow-wrap:anywhere; }
+  #movement #moveRows .stock-card-size { font-size:15px; margin-top:4px; }
+  #movement #moveRows .stock-current {
+    text-align:left; font-size:13px; margin:10px 0; padding:9px 10px;
+    background:#f4f7fb; border-radius:9px; line-height:1.4;
+  }
+  #movement #moveRows .stock-current strong { font-size:25px; line-height:1; }
+  #movement #moveRows .stock-current .hint { display:inline-block; font-size:11px; }
+  #movement #moveRows .field { min-width:0; margin:8px 0 !important; }
+  #movement #moveRows .field label { font-size:12px; }
+  #movement #moveRows .field input,
+  #movement #moveRows .field select { min-height:43px; font-size:15px; }
+  #movement #moveRows .stock-edit-row { grid-template-columns:minmax(0,1fr); gap:8px; }
+  #movement #moveRows .stock-edit-row input {
+    min-height:58px; font-size:27px; border-width:2px; border-radius:11px;
+  }
+  #movement #moveRows .stock-edit-buttons { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+  #movement #moveRows .stock-edit-buttons button { min-height:58px; font-size:32px; border-radius:11px; }
+  #movementHistoryPanel { padding:12px; }
+  #movementHistoryPanel .toolbar { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+  #movementHistoryPanel .toolbar .field { min-width:0; width:100%; max-width:none; }
+  #movementHistoryPanel .toolbar .field input,
+  #movementHistoryPanel .toolbar .field select { min-height:43px; font-size:14px; }
+  #movementHistoryPanel .toolbar > button { width:100%; min-height:45px; grid-column:1/-1; }
+  #movementHistoryPanel #inboundHistoryTotal { grid-column:1/-1; padding:4px 0; }
+  #movementHistoryPanel .tablewrap tbody tr { padding:9px 11px; }
+  #movementHistoryPanel .tablewrap tbody td { padding:7px 1px; font-size:13px; }
+  #movementHistoryPanel .tablewrap tbody td::before { flex-basis:36%; max-width:36%; }
+  #movementHistoryPanel .tablewrap tbody td.num { font-size:15px; font-weight:800; }
+}
+@media (max-width: 380px) {
+  #movement > .panel:first-of-type > .row:first-child { gap:8px; }
+  #movement #moveRows .stock-card { padding:11px; }
+  #movement #moveRows .stock-card-name { font-size:16px; }
+  #movementHistoryPanel .toolbar { grid-template-columns:1fr 1fr; }
+}
+
 </style>
 </head>
 <body>
@@ -595,7 +652,7 @@ function renderInboundHistory(){
  const maker=$('inboundHistoryMaker')?.value||'',name=$('inboundHistoryProduct')?.value||'',variant=$('inboundHistoryVariant')?.value||'',date=$('inboundHistoryDate')?.value||'',type=$('inboundHistoryType')?.value||'',q=($('inboundHistorySearch')?.value||'').toLowerCase();
  const list=inboundHistory.filter(x=>(!maker||x.supplier===maker)&&(!name||normProductName(x.name)===name)&&(!variant||(x.size||'標準')===variant)&&(!date||x.date===date)&&(!type||x.type===type)&&(!q||`${x.name} ${x.size} ${x.supplier} ${x.reference} ${x.note}`.toLowerCase().includes(q)));
  $('inboundHistoryTotal').textContent=`${list.length.toLocaleString('ja-JP')}件 / ${list.reduce((n,x)=>n+Number(x.qty||0),0).toLocaleString('ja-JP')}点`;
- $('inboundHistoryRows').innerHTML=list.map(x=>`<tr><td>${esc(x.date||'—')}</td><td><span class="pill ${x.type==='入庫'?'green':'red'}">${esc(x.type||'')}</span></td><td>${esc(x.supplier||'メーカー未設定')}</td><td class="product-name">${esc(x.name)}</td><td class="size">${esc(x.size||'標準')}</td><td class="num"><b>${Number(x.qty||0).toLocaleString('ja-JP')}</b></td><td class="num">${money(x.unitPrice,x.currency)}</td><td>${esc(x.reference)}</td><td>${esc(x.note)}</td></tr>`).join('')||'<tr><td colspan="9">該当する入出庫履歴がありません</td></tr>';
+ $('inboundHistoryRows').innerHTML=list.map(x=>`<tr><td data-label="日付">${esc(x.date||'—')}</td><td data-label="区分"><span class="pill ${x.type==='入庫'?'green':'red'}">${esc(x.type||'')}</span></td><td data-label="メーカー">${esc(x.supplier||'メーカー未設定')}</td><td data-label="商品" class="product-name">${esc(x.name)}</td><td data-label="サイズ・色" class="size">${esc(x.size||'標準')}</td><td data-label="数量" class="num"><b>${Number(x.qty||0).toLocaleString('ja-JP')}</b></td><td data-label="単価" class="num">${money(x.unitPrice,x.currency)}</td><td data-label="伝票番号・参照">${esc(x.reference)}</td><td data-label="備考">${esc(x.note)}</td></tr>`).join('')||'<tr><td colspan="9">該当する入出庫履歴がありません</td></tr>';
 }
 async function refreshInboundHistory(){try{busy(true,'入出庫履歴を更新中…');inboundHistory=await call('getInboundHistory');initInboundHistoryFilters();renderInboundHistory();toast('入出庫履歴を更新しました')}catch(e){alert(e.message);busy(false)}}
 
