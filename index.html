@@ -1046,20 +1046,35 @@ async function loadReports(){
  if(!from||!to)return;
  if(from>to)return alert('開始日は終了日以前の日付にしてください');
  const cacheKey=from+'|'+to;
- let cached=null,revision='';
+ let cached=null,revision='',hasCached=false;
+ // 最優先：GASへの通信より先に、端末内の保存済み集計を表示する。
  try{
-  // まず同期番号と端末保存結果を照合。変更がなければ通信なしで推定出庫を表示。
+  cached=await readReportCache(cacheKey);
+  if(cached&&cached.report){
+   applyReportData(cached.report,cached.bootstrap);
+   hasCached=true;
+   busy(false);
+   toast('保存済みの推定出庫を表示・最新データを確認中…');
+  }
+ }catch(cacheError){
+  console.warn('推定出庫キャッシュ読込失敗。サーバーから取得します',cacheError);
+  cached=null;
+ }
+
+ // 保存結果を表示した後で、裏側の同期番号を確認する。
+ try{
   const rev=await call('getSyncRevision');
   revision=String(rev&&rev.revision||'');
-  if(revision)cached=await readReportCache(cacheKey);
-  if(cached&&cached.revision===revision&&cached.report){
-   applyReportData(cached.report,cached.bootstrap);
-   busy(false);
-   toast('推定出庫（端末保存データ）');
+  if(hasCached&&revision&&String(cached.revision||'')===revision){
+   toast('推定出庫：保存データは最新です');
    return;
   }
- }catch(cacheError){console.warn('推定出庫キャッシュ確認失敗。サーバーから取得します',cacheError);}
- busy(true,'指定期間の推定出庫を更新中…');
+ }catch(revisionError){
+  console.warn('同期番号を確認できません。最新データを取得します',revisionError);
+ }
+
+ // キャッシュがない初回だけ画面に読み込み表示を出す。
+ if(!hasCached)busy(true,'指定期間の推定出庫を集計中…');
  try{
   const [r,d]=await Promise.all([
    call('getReports',from,to),
@@ -1071,14 +1086,22 @@ async function loadReports(){
    const latest=await call('getSyncRevision');
    const latestRevision=String(latest&&latest.revision||revision);
    // 集計中にデータ更新があった場合、古い結果に新しい同期番号を付けて保存しない。
-   if(!revision||latestRevision===revision){
+   if(latestRevision && (!revision||latestRevision===revision)){
     await writeReportCache(cacheKey,{revision:latestRevision,report:r,bootstrap:d,savedAt:Date.now()});
    }else{
     console.warn('集計中にデータ更新を検知したため、推定出庫キャッシュは保存しません');
    }
   }catch(saveError){console.warn('推定出庫を端末に保存できません',saveError);}
   toast('推定出庫を更新して端末に保存しました');
- }catch(e){alert(e.message);busy(false)}
+ }catch(e){
+  if(hasCached){
+   console.error('推定出庫の最新化に失敗しました',e);
+   toast('保存データを表示中（最新化できませんでした）');
+  }else{
+   alert(e.message);
+  }
+  busy(false);
+ }
 }
 
 async function runAI(){busy(true,'Gemini分析中…');$('aiResult').textContent='指定期間の出庫傾向・現在庫・欠品リスクをAIが分析しています…';try{const r=await call('aiForecast',$('reportFrom').value,$('reportTo').value);$('aiResult').innerHTML=`<div class="hint">モデル：${esc(r.model)} / 対象期間：${esc(r.from)} ～ ${esc(r.to)} / リスク候補 ${r.candidateCount}商品</div><div style="white-space:pre-wrap;line-height:1.7;margin-top:8px">${esc(r.text)}</div>`;toast('AI分析完了')}catch(e){$('aiResult').textContent=e.message;busy(false)}}
