@@ -1078,12 +1078,13 @@ async function loadReports(){
  const from=$('reportFrom').value, to=$('reportTo').value;
  if(!from||!to)return;
  if(from>to)return alert('開始日は終了日以前の日付にしてください');
- const cacheKey=from+'|'+to;
+ const cacheKey='derived-report-v2|'+from+'|'+to;
  let cached=null,revision='',hasCached=false;
  // 最優先：GASへの通信より先に、端末内の保存済み集計を表示する。
  try{
   cached=await readReportCache(cacheKey);
-  if(cached&&cached.report){
+  if(cached&&cached.report&&cached.from===from&&cached.to===to){
+   // 保存キーだけでなく期間メタデータも照合し、別期間の結果を誤表示しない。
    // 既にアプリ本体の商品データは起動時キャッシュから表示済み。
    // 推定出庫キャッシュ表示時にbootstrapを再適用すると、全商品画面の再描画で
    // スマホでは表示が遅れるため、集計結果だけを先に反映する。
@@ -1123,7 +1124,7 @@ async function loadReports(){
    const latestRevision=String(latest&&latest.revision||revision);
    // 集計中にデータ更新があった場合、古い結果に新しい同期番号を付けて保存しない。
    if(latestRevision && (!revision||latestRevision===revision)){
-    await writeReportCache(cacheKey,{revision:latestRevision,report:r,bootstrap:d,savedAt:Date.now()});
+    await writeReportCache(cacheKey,{from,to,revision:latestRevision,report:r,bootstrap:d,savedAt:Date.now()});
    }else{
     console.warn('集計中にデータ更新を検知したため、推定出庫キャッシュは保存しません');
    }
