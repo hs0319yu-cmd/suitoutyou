@@ -1,4 +1,4 @@
-const CACHE_NAME='suitoutyou-shell-v12-login-fast';
+const CACHE_NAME='suitoutyou-shell-v13-order-name-merge';
 const SHELL = ['./', './index.html', './api.js', './manifest.json', './icon.svg', './apple-touch-icon.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
