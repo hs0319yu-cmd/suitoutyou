@@ -516,6 +516,11 @@ footer{text-align:center;color:#8090a4;font-size:11px;padding:20px}
   <div class="row"><div class="field"><label>Gemini APIキー</label><input id="geminiKey" type="password" placeholder="AIza..."></div><button class="btn" onclick="saveGeminiKey()">APIキーを保存</button></div>
   <div id="keyStatus" class="hint" style="margin-top:8px"></div>
   <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+  <h2>商品マスタの手動更新</h2>
+  <p class="hint">スプレッドシートで商品名・サイズ・商品情報を直接変更したときに使用します。最新の商品データを取得して、この端末の保存データも更新します。入庫・出庫・棚卸・発注の履歴は削除・変更しません。通常の新規商品自動取得・同期もそのまま動作します。</p>
+  <button class="btn" id="refreshProductMasterBtn" onclick="refreshProductMasterNow()">商品マスタ最新データを取得</button>
+  <div id="productMasterRefreshStatus" class="hint" style="margin-top:8px"></div>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
   <h2>商品ごとの仕入先・補充ライン・単価</h2>
   <p class="hint">仕入先・補充ライン・単価をいつでも変更できます。値上げ時は新しい単価を入力して「商品設定を保存」してください。単価変更は操作ログに旧価格・新価格・変更日を記録し、過去の発注書の単価は変更しません。</p>
   <div class="toolbar setting-filters">
@@ -680,6 +685,30 @@ function applyBootstrapData(d,loadDates=true){
  initDerivedReportFilters(loadDates);
  initInboundHistoryFilters();
  renderInboundHistory();
+}
+async function refreshProductMasterNow(){
+ const btn=$('refreshProductMasterBtn'),status=$('productMasterRefreshStatus');
+ if(btn.disabled)return;
+ const from=window.reportDefaultFrom||'',to=window.reportDefaultTo||today();
+ btn.disabled=true;btn.textContent='最新データを取得中…';
+ status.textContent='商品マスタを含む最新データを取得しています。';
+ busy(true,'商品マスタ更新中…');
+ try{
+  // 通常の自動同期判定を迂回し、GASから必ず最新のBootstrapを取得する。
+  const d=await call('getBootstrapForApp20261119',from,to);
+  if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('最新の商品データを取得できませんでした');
+  applyBootstrapData(d,true);
+  const revisionResult=await call('getSyncRevision');
+  await writeInventoryCache({revision:String(revisionResult&&revisionResult.revision||''),from,to,data:d,savedAt:Date.now()});
+  status.textContent=`更新完了：商品 ${d.products.length.toLocaleString('ja-JP')} 件を取得し、この端末に保存しました。`;
+  toast('商品マスタを最新データに更新しました');
+ }catch(e){
+  status.textContent='更新できませんでした：'+(e&&e.message?e.message:'通信エラー');
+  alert('商品マスタを更新できませんでした。\n'+(e&&e.message?e.message:''));
+  busy(false);
+ }finally{
+  btn.disabled=false;btn.textContent='商品マスタ最新データを取得';
+ }
 }
 async function loadAll(){
  const from=window.reportDefaultFrom||'',to=window.reportDefaultTo||today();
