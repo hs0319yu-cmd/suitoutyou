@@ -1084,7 +1084,10 @@ async function loadReports(){
  try{
   cached=await readReportCache(cacheKey);
   if(cached&&cached.report){
-   applyReportData(cached.report,cached.bootstrap);
+   // 既にアプリ本体の商品データは起動時キャッシュから表示済み。
+   // 推定出庫キャッシュ表示時にbootstrapを再適用すると、全商品画面の再描画で
+   // スマホでは表示が遅れるため、集計結果だけを先に反映する。
+   applyReportData(cached.report,null);
    hasCached=true;
    busy(false);
    toast('保存済みの推定出庫を表示・最新データを確認中…');

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'suitoutyou-shell-v16-all-maker-date-fast';
+const CACHE_NAME='suitoutyou-shell-v11-report-cache-fast';
 const SHELL = ['./', './index.html', './api.js', './manifest.json', './icon.svg', './apple-touch-icon.png'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(SHELL)).then(() => self.skipWaiting()));
