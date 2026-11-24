@@ -1328,8 +1328,8 @@ function buildOrderDocumentHtml_(data){
  td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
  th:nth-child(1){width:34%}th:nth-child(2){width:17%}th:nth-child(3){width:11%}th:nth-child(4){width:18%}th:nth-child(5){width:20%}
  .total{text-align:right;font-size:14pt;font-weight:800;margin:14px 0 0;break-inside:avoid;page-break-inside:avoid}
- .note{margin-top:18px;border:1px solid #000;border-radius:0;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid;page-break-inside:avoid;background:#fff;color:#000;font-weight:700}
- .note-label{font-size:10pt;font-weight:900;margin-bottom:5px;color:#000}
+ .note{margin-top:18px;border:2px solid #c62828;border-radius:4px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid;page-break-inside:avoid;background:#fff7f7;color:#c62828;font-weight:700}
+ .note-label{font-size:10pt;font-weight:900;margin-bottom:5px;color:#b71c1c}
  @media screen{body{background:#eef1f5;padding:18px}.sheet{max-width:190mm;min-height:267mm;background:#fff;padding:10mm;box-shadow:0 2px 14px #0002}}
  @media print{
   body{background:#fff}
@@ -1378,7 +1378,7 @@ function refreshOrderPreview(){
  </div>
  <table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px"><thead><tr>${['商品名','サイズ・色','数量','単価','金額'].map(x=>`<th style="border:1px solid #000;padding:7px;background:#fff;color:#000">${x}</th>`).join('')}</tr></thead>${rows}</table>
  <div style="text-align:right;font-size:18px;font-weight:800;margin-top:14px">合計金額：${esc(totalText)}</div>
- <div style="margin-top:18px;padding:12px;border:1px solid #000;border-radius:0;background:#fff;color:#000;font-weight:700;white-space:pre-wrap"><b style="color:#000;font-size:14px">備考</b><div style="margin-top:6px">${esc($('orderNote').value||'（備考なし）')}</div></div></div>`;
+ <div style="margin-top:18px;padding:12px;border:2px solid #c62828;border-radius:4px;background:#fff7f7;color:#c62828;font-weight:700;white-space:pre-wrap"><b style="color:#b71c1c;font-size:14px">備考</b><div style="margin-top:6px">${esc($('orderNote').value||'（備考なし）')}</div></div></div>`;
 }
 function downloadOrderPdf(){
  if(!getOrderLines().length)return alert('先に発注明細を追加してください');
