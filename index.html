@@ -1255,34 +1255,31 @@ function calcOrder(){const total=getOrderLines().reduce((s,x)=>s+x.qty*x.unitPri
 async function saveSingleOrder(){const lines=getOrderLines();if(!lines.length)return alert('発注明細を入力してください');if(!$('orderSupplier').value)return alert('メーカーを選択してください');busy(true,'発注保存中…');try{orders=await call('saveOrder',{supplier:$('orderSupplier').value,orderDate:$('orderDate').value,deliveryDate:$('deliveryDate').value,note:$('orderNote').value,lines});backlogs=await call('getOrderBacklogs');renderBacklogs();renderOrders();refreshOrderPreview();toast('発注を保存しました')}catch(e){alert(e.message);busy(false)}}
 function renderOrderPreviewRows_(lines){
  const out=[];
- for(let i=0;i<lines.length;){
-  const name=String(lines[i].name||'');
-  let end=i+1;
-  while(end<lines.length&&String(lines[end].name||'')===name)end++;
-  for(let j=i;j<end;j++){
-   const x=lines[j],cells=[];
-   if(j===i)cells.push(`<td rowspan="${end-i}" style="border:1px solid #555;padding:7px;white-space:pre-line;vertical-align:middle">${esc(name)}</td>`);
-   cells.push(...[x.size,x.qty.toLocaleString('ja-JP'),money(x.unitPrice,x.currency),money(x.qty*x.unitPrice,x.currency)].map(v=>`<td style="border:1px solid #555;padding:7px;white-space:pre-line">${esc(v)}</td>`));
-   out.push(`<tr>${cells.join('')}</tr>`);
-  }
-  i=end;
+ for(const x of lines){
+  const cells=[
+   `<td>${esc(x.name||'')}</td>`,
+   `<td>${esc(x.size||'')}</td>`,
+   `<td class="num">${(Number(x.qty)||0).toLocaleString('ja-JP')}</td>`,
+   `<td class="num">${esc(money(x.unitPrice,x.currency))}</td>`,
+   `<td class="num">${esc(money((Number(x.qty)||0)*(Number(x.unitPrice)||0),x.currency))}</td>`
+  ];
+  out.push(`<tr>${cells.join('')}</tr>`);
  }
  return out.join('');
 }
 function renderSavedOrderRows_(lines){
  const out=[];
- for(let i=0;i<lines.length;){
-  const name=String(lines[i]['商品名']||'');
-  let end=i+1;
-  while(end<lines.length&&String(lines[end]['商品名']||'')===name)end++;
-  for(let j=i;j<end;j++){
-   const l=lines[j],size=l['サイズ']||'',qty=Number(l['数量'])||0,price=Number(l['単価'])||0,amount=Number(l['金額'])||qty*price,currency=l['通貨']||'JPY';
-   const cells=[];
-   if(j===i)cells.push(`<td rowspan="${end-i}">${esc(name)}</td>`);
-   cells.push(`<td>${esc(size)}</td><td class="num">${qty.toLocaleString('ja-JP')}</td><td class="num">${money(price,currency)}</td><td class="num">${money(amount,currency)}</td>`);
-   out.push(`<tr>${cells.join('')}</tr>`);
-  }
-  i=end;
+ for(const l of lines){
+  const qty=Number(l['数量'])||0,price=Number(l['単価'])||0;
+  const amount=Number(l['金額'])||qty*price,currency=l['通貨']||'JPY';
+  const cells=[
+   `<td>${esc(l['商品名']||'')}</td>`,
+   `<td>${esc(l['サイズ']||'')}</td>`,
+   `<td class="num">${qty.toLocaleString('ja-JP')}</td>`,
+   `<td class="num">${esc(money(price,currency))}</td>`,
+   `<td class="num">${esc(money(amount,currency))}</td>`
+  ];
+  out.push(`<tr>${cells.join('')}</tr>`);
  }
  return out.join('');
 }
@@ -1323,8 +1320,12 @@ function buildOrderDocumentHtml_(data){
  thead{display:table-header-group}
  tfoot{display:table-footer-group}
  tr{break-inside:avoid;page-break-inside:avoid}
- th,td{border:1px solid #465365;padding:6px 7px;vertical-align:middle}
- th{background:#e8edf3;font-weight:800;text-align:center}
+ th,td{border:1px solid #000;padding:6px 7px;vertical-align:middle}
+ th{background:#fff !important;color:#000;font-weight:800;text-align:center}
+ thead{display:table-header-group}
+ tbody tr{break-inside:avoid !important;page-break-inside:avoid !important}
+ .closing{break-inside:avoid !important;page-break-inside:avoid !important}
+ .total,.note{break-inside:avoid !important;page-break-inside:avoid !important}
  td{overflow-wrap:anywhere}
  td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
  th:nth-child(1){width:34%}th:nth-child(2){width:17%}th:nth-child(3){width:11%}th:nth-child(4){width:18%}th:nth-child(5){width:20%}
@@ -1332,13 +1333,19 @@ function buildOrderDocumentHtml_(data){
  .note{margin-top:18px;border:2px solid #c62828;border-radius:4px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid;page-break-inside:avoid;background:#fff7f7;color:#c62828;font-weight:700}
  .note-label{font-size:10pt;font-weight:900;margin-bottom:5px;color:#b71c1c}
  @media screen{body{background:#eef1f5;padding:18px}.sheet{max-width:190mm;min-height:267mm;background:#fff;padding:10mm;box-shadow:0 2px 14px #0002}}
- @media print{body{background:#fff}.sheet{width:100%}.note{background:#fff}}
+ @media print{
+  body{background:#fff}
+  .sheet{width:100%}
+  th{background:#fff !important;color:#000 !important}
+  th,td{border:1px solid #000 !important}
+  .note{background:#fff}
+}
  </style></head><body><main class="sheet">
  <div class="title">発 注 書</div>
  <div class="top">${metaLeft}<div class="right"><div class="meta">発注日：${esc(data.orderDate||'')}<br>納品期限：${esc(data.deliveryDate||'')}</div>${companyBlockHtml_()}</div></div>
  <table><thead><tr><th>商品名</th><th>サイズ・色</th><th>数量</th><th>単価</th><th>金額</th></tr></thead><tbody>${rows}</tbody></table>
- <div class="total">合計金額：${esc(totals)}</div>
- <div class="note"><div class="note-label">備考</div>${esc(note)}</div>
+ <div class="closing"><div class="total">合計金額：${esc(totals)}</div>
+ <div class="note"><div class="note-label">備考</div>${esc(note)}</div></div>
  </main><script>window.addEventListener('load',()=>{document.fonts&&document.fonts.ready?document.fonts.ready.then(()=>setTimeout(()=>window.print(),250)):setTimeout(()=>window.print(),500)});<\/script></body></html>`;
 }
 function openOrderPrintWindow_(data){
@@ -1371,7 +1378,7 @@ function refreshOrderPreview(){
    </div>
   </div>
  </div>
- <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${['商品名','サイズ・色','数量','単価','金額'].map(x=>`<th style="border:1px solid #465365;padding:7px;background:#e8edf3">${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
+ <table style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px"><thead><tr>${['商品名','サイズ・色','数量','単価','金額'].map(x=>`<th style="border:1px solid #000;padding:7px;background:#fff;color:#000">${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
  <div style="text-align:right;font-size:18px;font-weight:800;margin-top:14px">合計金額：${esc(totalText)}</div>
  <div style="margin-top:18px;padding:12px;border:2px solid #c62828;border-radius:4px;background:#fff7f7;color:#c62828;font-weight:700;white-space:pre-wrap"><b style="color:#b71c1c;font-size:14px">備考</b><div style="margin-top:6px">${esc($('orderNote').value||'（備考なし）')}</div></div></div>`;
 }
