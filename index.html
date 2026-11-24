@@ -1291,8 +1291,8 @@ function companyBlockHtml_(){
  const c=getCompanyInfo();
  const rows=[
   c.name?`<div class="company-name">${esc(c.name)}</div>`:'',
-  c.orderer?`<div>発注者：${esc(c.orderer)}</div>`:'',
-  c.postalCode?`<div>〒${esc(c.postalCode.replace(/^〒/,' ' ).trim())}</div>`:'',
+  c.orderer?`<div>発注者　${esc(c.orderer)}</div>`:'',
+  c.postalCode?`<div>${esc(c.postalCode.startsWith("〒")?c.postalCode:"〒"+c.postalCode)}</div>`:'',
   c.address?`<div>${esc(c.address)}</div>`:'',
   c.tel?`<div>TEL：${esc(c.tel)}</div>`:'',
   c.fax?`<div>FAX：${esc(c.fax)}</div>`:''
@@ -1315,9 +1315,9 @@ function buildOrderDocumentHtml_(data){
  .top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:16px}
  .recipient{flex:1;min-width:0;font-size:11pt}.recipient b{font-size:14pt}.recipient p{margin:6px 0}
  .order-id{font-size:9pt;color:#475569;margin-top:8px}
- .right{width:48%;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
- .meta{white-space:nowrap;line-height:1.9;font-size:9.5pt}
- .company-block{text-align:right;font-size:9pt;line-height:1.55;overflow-wrap:anywhere}
+ .right{width:48%;display:flex;flex-direction:column;align-items:stretch;gap:5px}
+ .meta{white-space:nowrap;line-height:1.9;font-size:9.5pt;text-align:right}
+ .company-block{text-align:left;font-size:9.5pt;line-height:1.65;overflow-wrap:anywhere}
  .company-name{font-size:12pt;font-weight:800;margin-bottom:3px}
  table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9.5pt}
  thead{display:table-header-group}
@@ -1329,8 +1329,8 @@ function buildOrderDocumentHtml_(data){
  td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
  th:nth-child(1){width:34%}th:nth-child(2){width:17%}th:nth-child(3){width:11%}th:nth-child(4){width:18%}th:nth-child(5){width:20%}
  .total{text-align:right;font-size:14pt;font-weight:800;margin:14px 0 0;break-inside:avoid;page-break-inside:avoid}
- .note{margin-top:18px;border:1px solid #8793a3;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid;page-break-inside:avoid}
- .note-label{font-size:9pt;font-weight:800;margin-bottom:5px;color:#334155}
+ .note{margin-top:18px;border:2px solid #c62828;border-radius:4px;padding:10px 12px;white-space:pre-wrap;overflow-wrap:anywhere;break-inside:avoid;page-break-inside:avoid;background:#fff7f7;color:#c62828;font-weight:700}
+ .note-label{font-size:10pt;font-weight:900;margin-bottom:5px;color:#b71c1c}
  @media screen{body{background:#eef1f5;padding:18px}.sheet{max-width:190mm;min-height:267mm;background:#fff;padding:10mm;box-shadow:0 2px 14px #0002}}
  @media print{body{background:#fff}.sheet{width:100%}.note{background:#fff}}
  </style></head><body><main class="sheet">
@@ -1359,11 +1359,21 @@ function refreshOrderPreview(){
  <div style="text-align:center;font-size:22px;font-weight:800;letter-spacing:.2em;border-bottom:2px solid #172033;padding:8px">発 注 書</div>
  <div style="display:flex;justify-content:space-between;gap:18px;margin:16px 0">
   <div><b style="font-size:16px">${esc(maker)} 御中</b><p>下記の通り発注いたします。</p></div>
-  <div style="text-align:right;line-height:1.7">${esc(date)}<br>納品期限：${esc(delivery)}<br><b>${esc(c.name)}</b><br>${esc(c.orderer)}<br>${esc(c.postalCode)}<br>${esc(c.address)}<br>TEL：${esc(c.tel)}<br>FAX：${esc(c.fax)}</div>
+  <div style="width:48%;display:flex;flex-direction:column;align-items:stretch;gap:5px">
+   <div style="text-align:right;line-height:1.7">${esc(date)}<br>納品期限：${esc(delivery)}</div>
+   <div style="text-align:left;line-height:1.65;font-size:13px;overflow-wrap:anywhere">
+    ${c.name?`<div style="font-size:16px;font-weight:800">${esc(c.name)}</div>`:''}
+    ${c.orderer?`<div>発注者　${esc(c.orderer)}</div>`:''}
+    ${c.postalCode?`<div>${esc(c.postalCode.startsWith('〒')?c.postalCode:'〒'+c.postalCode)}</div>`:''}
+    ${c.address?`<div>${esc(c.address)}</div>`:''}
+    ${c.tel?`<div>TEL：${esc(c.tel)}</div>`:''}
+    ${c.fax?`<div>FAX：${esc(c.fax)}</div>`:''}
+   </div>
+  </div>
  </div>
  <table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>${['商品名','サイズ・色','数量','単価','金額'].map(x=>`<th style="border:1px solid #465365;padding:7px;background:#e8edf3">${x}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table>
  <div style="text-align:right;font-size:18px;font-weight:800;margin-top:14px">合計金額：${esc(totalText)}</div>
- <div style="margin-top:18px;padding:12px;border:1px solid #8793a3;white-space:pre-wrap"><b>備考</b><div style="margin-top:6px">${esc($('orderNote').value||'（備考なし）')}</div></div></div>`;
+ <div style="margin-top:18px;padding:12px;border:2px solid #c62828;border-radius:4px;background:#fff7f7;color:#c62828;font-weight:700;white-space:pre-wrap"><b style="color:#b71c1c;font-size:14px">備考</b><div style="margin-top:6px">${esc($('orderNote').value||'（備考なし）')}</div></div></div>`;
 }
 function downloadOrderPdf(){
  if(!getOrderLines().length)return alert('先に発注明細を追加してください');
