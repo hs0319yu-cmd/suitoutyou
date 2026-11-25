@@ -1,5 +1,5 @@
 {
-  "id": "./",
+  "id": "./index.html",
   "name": "在庫・発注管理",
   "short_name": "在庫管理",
   "lang": "ja",
@@ -10,13 +10,13 @@
   "theme_color": "#10243b",
   "icons": [
     {
-      "src": "./icon.svg",
+      "src": "./icon.svg?v=suitoutyou-v16",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "./apple-touch-icon.png",
+      "src": "./apple-touch-icon.png?v=suitoutyou-v16",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"
