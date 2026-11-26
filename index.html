@@ -757,36 +757,79 @@ async function refreshProductMasterNow(){
 async function loadAll(){
  const from=window.reportDefaultFrom||'',to=window.reportDefaultTo||today();
  let cached=null;
- // まず端末内の保存データを読み、通信を待たずに画面を組み立てる。
+ let revision='';
+
+ // まず端末内の保存データを確認する。
  try{
   cached=await readInventoryCache();
-  if(cached&&cached.data&&Array.isArray(cached.data.products)&&cached.from===from&&cached.to===to){
+  if(!(cached&&cached.data&&Array.isArray(cached.data.products)&&cached.from===from&&cached.to===to)){
+   cached=null;
+  }
+  if(cached){
    applyBootstrapData(cached.data,false);
    busy(false);
    $('loadState').textContent='保存データ表示中';
-  }else cached=null;
- }catch(cacheError){console.warn('ローカル保存データを読み込めません',cacheError);cached=null;}
- try{
-  const revisionResult=await call('getSyncRevision');
-  const revision=String(revisionResult&&revisionResult.revision||'');
-  if(cached&&revision&&String(cached.revision)===revision){
-   toast('最新データ（端末保存）');
-   return;
   }
-  busy(true,cached?'変更データを確認中…':'初回データ読込中…');
+ }catch(cacheError){
+  console.warn('ローカル保存データを読み込めません',cacheError);
+  cached=null;
+ }
+
+ // 保存済みデータがある場合だけ同期番号を確認する。
+ // 初回は同期番号の取得に依存せず、先に商品データを取得する。
+ if(cached){
+  try{
+   const revisionResult=await call('getSyncRevision');
+   revision=String(revisionResult&&revisionResult.revision||'');
+   if(revision&&String(cached.revision||'')===revision){
+    toast('最新データ（端末保存）');
+    return;
+   }
+  }catch(revisionError){
+   console.warn('同期番号を確認できません。最新データを取得します',revisionError);
+  }
+ }
+
+ busy(true,cached?'変更データを確認中…':'初回データ読込中…');
+ try{
   const d=await call('getBootstrapForApp20261119',from,to);
-  if(!d||d.ok!==true||!Array.isArray(d.products))throw new Error('商品データを取得できません');
+  if(!d||d.ok!==true||!Array.isArray(d.products)){
+   throw new Error('商品データを取得できません');
+  }
+
+  // 取得できたデータは、端末保存の成否にかかわらず先に画面へ反映する。
   applyBootstrapData(d,true);
-  const latestRevision=await call('getSyncRevision');
-  await writeInventoryCache({revision:String(latestRevision&&latestRevision.revision||revision),from,to,data:d,savedAt:Date.now()});
-  toast(cached?'データを更新しました':'初回データを保存しました');
+
+  // 同期番号は保存用の付加情報。取得に失敗してもデータ保存を続行する。
+  try{
+   const latestRevision=await call('getSyncRevision');
+   revision=String(latestRevision&&latestRevision.revision||revision||'');
+  }catch(revisionError){
+   console.warn('保存用の同期番号を取得できません。データ本体を保存します',revisionError);
+  }
+
+  try{
+   await writeInventoryCache({
+    revision:revision,
+    from:from,
+    to:to,
+    data:d,
+    savedAt:Date.now()
+   });
+   toast(cached?'データを更新しました':'初回データを保存しました');
+  }catch(saveError){
+   console.error('初回データの端末保存に失敗しました',saveError);
+   $('loadState').textContent='データ取得完了（端末保存失敗）';
+   console.warn('IndexedDBの保存状態を確認してください',saveError);
+  }
  }catch(e){
   if(cached){
    busy(false);
    $('loadState').textContent='保存データで表示中（通信未確認）';
    console.warn('同期できないため端末保存データを使用',e);
   }else{
-   alert(e.message);busy(false);
+   alert(e.message||'商品データを取得できませんでした');
+   busy(false);
   }
  }
 }
