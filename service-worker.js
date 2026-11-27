@@ -1,4 +1,4 @@
-const CACHE_NAME='suitoutyou-shell-v17-isolated';
+const CACHE_NAME='suitoutyou-shell-v18-zero-stocktake';
 const OWN_CACHE_PREFIX='suitoutyou-';
 const SHELL = ['./', './index.html', './api.js', './manifest.json', './icon.svg', './apple-touch-icon.png'];
 

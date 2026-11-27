@@ -1024,19 +1024,27 @@ function renderStockRows(){
  const list=filteredByMaker(maker).filter(p=>(!name||sameProductName(p.name,name))&&(!variant||p.id===variant)&&(`${p.name} ${p.size} ${p.supplier}`.toLowerCase().includes(q)));
  const page=mobileListSlice(list,'stock');
  $('stockRows').innerHTML=page.items.map(p=>{
-  const total=Number(draft[p.id])||0;
-  return `<div class="stock-card" data-stock-card="${p.id}"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div><div class="stock-current">最新の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}${p.stocktakeKind?'（'+esc(p.stocktakeKind)+'）':''}</div><span class="hint">（棚卸後の入出庫を反映した参考表示・今回入力には加算しません）</span></div><div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="stock-total-${p.id}">${total}</strong></div><div class="stock-edit-row"><input type="number" min="1" step="1" inputmode="numeric" data-stock-id="${p.id}" placeholder="棚卸数量を入力" value="" autocomplete="off" onfocus="this.select()" onkeydown="stockEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustStockCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustStockCount('${p.id}',-1)">－</button></div></div></div>`;
+  const entered=Object.prototype.hasOwnProperty.call(draft,p.id);
+  const total=entered?(Number(draft[p.id])||0):0;
+  return `<div class="stock-card" data-stock-card="${p.id}"><div class="stock-card-name">${esc(p.name)}</div><div class="stock-card-size">${esc(p.size||'標準')} <span class="hint">${esc(p.supplier||'')}</span></div><div class="stock-current">最新の在庫：<strong>${p.balance===null?'未棚卸':Number(p.balance)||0}</strong><div class="hint">最終棚卸日：${p.lastStocktakeDate?esc(p.lastStocktakeDate.replace(/-/g,'/')):'未登録'}${p.stocktakeKind?'（'+esc(p.stocktakeKind)+'）':''}</div><span class="hint">（棚卸後の入出庫を反映した参考表示・今回入力には加算しません）</span></div><div class="stock-current"><span class="hint">今回の端末入力数：</span><strong id="stock-total-${p.id}" class="${entered&&total===0?'outflow-negative':''}">${entered?total:'未入力'}</strong></div><div class="stock-edit-row"><input type="number" min="0" step="1" inputmode="numeric" data-stock-id="${p.id}" placeholder="棚卸数量を入力（0も可）" value="" autocomplete="off" onfocus="this.select()" onkeydown="stockEnterAdd(event,'${p.id}')"><div class="stock-edit-buttons"><button type="button" class="stock-plus" onclick="adjustStockCount('${p.id}',1)">＋</button><button type="button" class="stock-minus" onclick="adjustStockCount('${p.id}',-1)">－</button></div></div></div>`;
  }).join('')||'<div class="hint">対象商品がありません</div>';
  $('stockRows').insertAdjacentHTML('beforeend',mobileMoreButton('stock',list.length));
- const count=Object.values(draft).filter(v=>Number(v)>0).length,total=Object.values(draft).reduce((s,v)=>s+(Number(v)||0),0);
- if($('stockPendingSummary'))$('stockPendingSummary').textContent=`未確定：${count}商品 / ${total}点`;
+ const count=Object.keys(draft).length,total=Object.values(draft).reduce((s,v)=>s+(Number(v)||0),0);
+ if($('stockPendingSummary'))$('stockPendingSummary').textContent=`未確定：${count}商品 / ${total}点（0入力も含む）`;
 }
 function stockInput(id){return document.querySelector(`[data-stock-id="${CSS.escape(String(id))}"]`)}
 function adjustStockCount(id,mode){
  const el=stockInput(id);if(!el)return;
- const raw=String(el.value||'').trim(),qty=raw?Math.floor(Number(raw)):1;
- if(!Number.isFinite(qty)||qty<=0){el.focus();return alert('数量を1以上で入力してください')}
- const draft=getStockDraft(),next=(Number(draft[id])||0)+(mode>0?qty:-qty);
+ const raw=String(el.value??'').trim();
+ const draft=getStockDraft();
+ // 数量欄に明示的に「0」と入力した場合は、加算ではなく実棚0として記録する。
+ if(raw==='0'){
+  draft[id]=0;saveStockInputTotals();el.value='';renderStockRows();
+  const nextEl=stockInput(id);if(nextEl)nextEl.focus();return;
+ }
+ const qty=raw?Math.floor(Number(raw)):1;
+ if(!Number.isFinite(qty)||qty<=0){el.focus();return alert('数量は0以上の整数で入力してください')}
+ const next=(Number(draft[id])||0)+(mode>0?qty:-qty);
  if(next<0)return alert('端末入力数は0未満にできません');
  draft[id]=next;saveStockInputTotals();
  el.value='';renderStockRows();
